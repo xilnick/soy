@@ -1,5 +1,5 @@
 """
-asf.ws
+soy.ws
 ======
 
 ASF WebSocket endpoint (added by the missions/agents/executions

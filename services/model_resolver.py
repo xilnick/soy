@@ -1,5 +1,5 @@
 """
-asf.services.model_resolver
+soy.services.model_resolver
 ============================
 
 Resolves a model identifier (e.g. ``"kimi-k2.6:cloud"`` or
@@ -32,7 +32,7 @@ import os
 import re
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger("asf.services.model_resolver")
+logger = logging.getLogger("soy.services.model_resolver")
 
 # Default Ollama base URL (the ``/v1`` suffix matches the
 # OpenAI-compatible endpoint that PraisonAI calls).

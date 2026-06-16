@@ -1,8 +1,8 @@
 """
 Unit tests for the optional external integrations:
 
-* Mission Control sync (asf.services.mission_control_sync)
-* DeerFlow client (asf.services.deerflow_client)
+* Mission Control sync (soy.services.mission_control_sync)
+* DeerFlow client (soy.services.deerflow_client)
 
 Each integration is gated off by default; the tests assert both the
 enabled behaviour AND that the disabled path is a genuine no-op (never
@@ -42,7 +42,7 @@ def _mission():
 # Mission Control sync
 # ---------------------------------------------------------------------------
 def _record_posts(monkeypatch):
-    from asf.services import mission_control_sync as mc
+    from soy.services import mission_control_sync as mc
     calls = []
     monkeypatch.setattr(
         mc.MissionControlSync, "_post",
@@ -52,7 +52,7 @@ def _record_posts(monkeypatch):
 
 
 def test_mc_sync_disabled_is_noop(monkeypatch):
-    from asf.services import mission_control_sync as mc
+    from soy.services import mission_control_sync as mc
     monkeypatch.delenv("ASF_MC_SYNC_ENABLED", raising=False)
     calls = _record_posts(monkeypatch)
     mc.sync_agent(_agent())
@@ -62,7 +62,7 @@ def test_mc_sync_disabled_is_noop(monkeypatch):
 
 
 def test_mc_sync_enabled_pushes_each_entity(monkeypatch):
-    from asf.services import mission_control_sync as mc
+    from soy.services import mission_control_sync as mc
     monkeypatch.setenv("ASF_MC_SYNC_ENABLED", "true")
     calls = _record_posts(monkeypatch)
 
@@ -80,7 +80,7 @@ def test_mc_sync_enabled_pushes_each_entity(monkeypatch):
 
 
 def test_mc_post_swallows_errors_and_returns_false(monkeypatch):
-    from asf.services import mission_control_sync as mc
+    from soy.services import mission_control_sync as mc
     import httpx
 
     class _Boom:
@@ -102,7 +102,7 @@ def test_mc_post_swallows_errors_and_returns_false(monkeypatch):
 
 
 def test_mc_headers_include_api_key(monkeypatch):
-    from asf.services import mission_control_sync as mc
+    from soy.services import mission_control_sync as mc
     client = mc.MissionControlSync(base_url="http://x", api_key="k-123")
     headers = client._headers()
     assert headers["Authorization"] == "Bearer k-123"
@@ -113,7 +113,7 @@ def test_mc_headers_include_api_key(monkeypatch):
 # DeerFlow client
 # ---------------------------------------------------------------------------
 def test_deerflow_disabled_is_noop(monkeypatch):
-    from asf.services import deerflow_client as dc
+    from soy.services import deerflow_client as dc
     monkeypatch.delenv("ASF_DEERFLOW_ENABLED", raising=False)
     called = []
     monkeypatch.setattr(
@@ -127,7 +127,7 @@ def test_deerflow_disabled_is_noop(monkeypatch):
 
 
 def test_deerflow_enabled_triggers_for_sandboxed_agent(monkeypatch):
-    from asf.services import deerflow_client as dc
+    from soy.services import deerflow_client as dc
     monkeypatch.setenv("ASF_DEERFLOW_ENABLED", "true")
     called = []
     monkeypatch.setattr(
@@ -143,7 +143,7 @@ def test_deerflow_enabled_triggers_for_sandboxed_agent(monkeypatch):
 
 
 def test_deerflow_skips_non_sandboxed_agent(monkeypatch):
-    from asf.services import deerflow_client as dc
+    from soy.services import deerflow_client as dc
     monkeypatch.setenv("ASF_DEERFLOW_ENABLED", "true")
     called = []
     monkeypatch.setattr(
@@ -158,7 +158,7 @@ def test_deerflow_skips_non_sandboxed_agent(monkeypatch):
 
 
 def test_deerflow_trigger_swallows_errors(monkeypatch):
-    from asf.services import deerflow_client as dc
+    from soy.services import deerflow_client as dc
     import httpx
 
     class _Boom:

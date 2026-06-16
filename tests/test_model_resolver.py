@@ -1,5 +1,5 @@
 """
-Tests for :mod:`asf.services.model_resolver`.
+Tests for :mod:`soy.services.model_resolver`.
 
 Covers the routing contract that the ASF worker relies on:
 
@@ -24,7 +24,7 @@ def test_resolve_ollama_prefix_routes_to_local(monkeypatch):
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    from asf.services.model_resolver import resolve_model
+    from soy.services.model_resolver import resolve_model
 
     out = resolve_model("ollama/codestral")
     assert out["base_url"] == "http://localhost:11434/v1"
@@ -41,7 +41,7 @@ def test_resolve_cloud_model_injects_api_key(monkeypatch):
     monkeypatch.setenv("OLLAMA_API_KEY", "sk-test-cloud-key")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    from asf.services.model_resolver import resolve_model
+    from soy.services.model_resolver import resolve_model
 
     out = resolve_model("kimi-k2.6:cloud")
     assert out["base_url"] == "http://localhost:11434/v1"
@@ -56,7 +56,7 @@ def test_resolve_bare_name_defaults_to_local(monkeypatch):
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    from asf.services.model_resolver import resolve_model
+    from soy.services.model_resolver import resolve_model
 
     out = resolve_model("llama3.2")
     assert out["is_cloud"] is False
@@ -67,14 +67,14 @@ def test_resolve_bare_name_defaults_to_local(monkeypatch):
 def test_resolve_uses_openai_base_url_override(monkeypatch):
     monkeypatch.setenv("OPENAI_BASE_URL", "http://cloud-ollama.example/v1")
     monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
-    from asf.services.model_resolver import resolve_model
+    from soy.services.model_resolver import resolve_model
 
     out = resolve_model("ollama/codestral")
     assert out["base_url"] == "http://cloud-ollama.example/v1"
 
 
 def test_resolve_empty_string_raises():
-    from asf.services.model_resolver import resolve_model
+    from soy.services.model_resolver import resolve_model
 
     with pytest.raises(ValueError):
         resolve_model("")
@@ -84,7 +84,7 @@ def test_resolve_cloud_missing_key_warns(monkeypatch, caplog):
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    from asf.services.model_resolver import resolve_model
+    from soy.services.model_resolver import resolve_model
 
     with caplog.at_level("WARNING"):
         out = resolve_model("gpt-oss:cloud")
@@ -96,7 +96,7 @@ def test_resolve_cloud_missing_key_warns(monkeypatch, caplog):
 
 
 def test_praisonai_agent_model_id_strips_prefix():
-    from asf.services.model_resolver import praisonai_agent_model_id
+    from soy.services.model_resolver import praisonai_agent_model_id
 
     assert praisonai_agent_model_id("ollama/codestral") == "codestral"
     assert praisonai_agent_model_id("kimi-k2.6:cloud") == "kimi-k2.6"
@@ -104,7 +104,7 @@ def test_praisonai_agent_model_id_strips_prefix():
 
 
 def test_is_ollama_local():
-    from asf.services.model_resolver import is_ollama_local
+    from soy.services.model_resolver import is_ollama_local
 
     assert is_ollama_local("ollama/codestral") is True
     assert is_ollama_local("llama3.2") is True
@@ -117,7 +117,7 @@ def test_export_env_for_praisonai(monkeypatch):
     monkeypatch.setenv("OLLAMA_API_KEY", "sk-test")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    from asf.services.model_resolver import export_env_for_praisonai
+    from soy.services.model_resolver import export_env_for_praisonai
 
     env = export_env_for_praisonai("kimi-k2.6:cloud")
     assert env["OPENAI_BASE_URL"] == "http://localhost:11434/v1"

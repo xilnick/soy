@@ -71,7 +71,7 @@ def migrated_engine(db_url):
     from sqlalchemy import create_engine, text
     from sqlalchemy.engine import Engine
 
-    from asf.db import run_alembic_upgrade
+    from soy.db import run_alembic_upgrade
 
     # If the URL points at a database that already has the schema,
     # ``alembic upgrade head`` is a no-op. We use the URL as-is.
@@ -89,7 +89,7 @@ def migrated_engine(db_url):
             from alembic import command
             from alembic.config import Config
 
-            from asf.db import _locate_alembic_ini
+            from soy.db import _locate_alembic_ini
 
             cfg = Config(_locate_alembic_ini())
             cfg.set_main_option("sqlalchemy.url", db_url)
@@ -280,7 +280,7 @@ class TestForeignKeys:
         # Use SQLAlchemy ORM insert to get correct UUID handling. The
         # test relies on the FK constraint to reject the row, not on
         # the column type coercion.
-        import asf.models as models
+        import soy.models as models
         from sqlalchemy.orm import Session
 
         bad_mission = uuid.uuid4()
@@ -297,7 +297,7 @@ class TestForeignKeys:
 
     def test_deleting_mission_cascades(self, migrated_engine):
         """VAL-API-060: deleting a mission removes its children."""
-        import asf.models as models
+        import soy.models as models
         from sqlalchemy import text
         from sqlalchemy.orm import Session
 
@@ -445,7 +445,7 @@ class TestMigrationRollback:
         from alembic.config import Config
         from sqlalchemy import create_engine, text
 
-        from asf.db import _locate_alembic_ini, run_alembic_upgrade
+        from soy.db import _locate_alembic_ini, run_alembic_upgrade
 
         # Upgrade first to ensure we are at head.
         run_alembic_upgrade(database_url=db_url)
@@ -576,7 +576,7 @@ class TestJsonbColumns:
         assert row[0] == "jsonb"
 
     def test_jsonb_supports_nested_data(self, migrated_engine):
-        import asf.models as models
+        import soy.models as models
 
         with session_scope(migrated_engine) as session:
             mission = models.Mission(
@@ -651,7 +651,7 @@ class TestChatSenderType:
                     )
 
     def test_user_and_system_messages_have_null_sender_id(self, migrated_engine):
-        import asf.models as models
+        import soy.models as models
 
         with session_scope(migrated_engine) as session:
             mission = models.Mission(title="chat sender test")
@@ -674,7 +674,7 @@ class TestChatSenderType:
             assert system_msg.sender_id is None
 
     def test_agent_message_links_to_agent(self, migrated_engine):
-        import asf.models as models
+        import soy.models as models
 
         with session_scope(migrated_engine) as session:
             mission = models.Mission(title="agent msg test")
@@ -717,7 +717,7 @@ class TestReupgradeIdempotency:
     def test_reupgrade_is_noop(self, db_url):
         from sqlalchemy import create_engine, text
 
-        from asf.db import run_alembic_upgrade
+        from soy.db import run_alembic_upgrade
 
         # First upgrade (idempotent in the schema's lifetime).
         run_alembic_upgrade(database_url=db_url)
@@ -739,7 +739,7 @@ class TestReupgradeIdempotency:
         """The alembic_version table must exist after the first migration."""
         from sqlalchemy import create_engine, text
 
-        from asf.db import run_alembic_upgrade
+        from soy.db import run_alembic_upgrade
 
         run_alembic_upgrade(database_url=db_url)
         engine = create_engine(db_url, future=True)
@@ -763,7 +763,7 @@ class TestReupgradeIdempotency:
 @pytest.fixture(scope="module", autouse=True)
 def _ensure_migrated(db_url):
     """Run ``alembic upgrade head`` once per test module."""
-    from asf.db import run_alembic_upgrade
+    from soy.db import run_alembic_upgrade
 
     run_alembic_upgrade(database_url=db_url)
     yield

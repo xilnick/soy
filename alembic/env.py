@@ -9,7 +9,7 @@ Standard Alembic env.py with two important twists:
    local SQLite, the test PostgreSQL container, and the production
    PostgreSQL instance without ever baking a secret into the repo).
 
-2. The ``Base.metadata`` is imported from :mod:`asf.models`, which
+2. The ``Base.metadata`` is imported from :mod:`soy.models`, which
    means *all* ASF models are part of the autogenerate target — there
    is no risk of a new model being added without its table being
    included in the next migration.
@@ -18,10 +18,10 @@ Run migrations with::
 
     cd /Users/purplelephant/projects/piperoni
     ASF_DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/asf \
-        alembic --config asf/alembic.ini upgrade head
+        alembic --config soy/alembic.ini upgrade head
 
 Or, equivalently, invoke the ``run_alembic_upgrade`` helper from
-``asf.db`` (used by the FastAPI lifespan hook and the deploy script).
+``soy.db`` (used by the FastAPI lifespan hook and the deploy script).
 """
 
 from __future__ import annotations
@@ -34,18 +34,18 @@ from pathlib import Path
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Ensure the project root is on sys.path so ``asf`` can be imported when
+# Ensure the project root is on sys.path so ``soy`` can be imported when
 # Alembic is invoked from any working directory. This is necessary
 # because the configured script_location is the package-relative path
-# ``asf/alembic`` and Alembic does not automatically add the project
+# ``soy/alembic`` and Alembic does not automatically add the project
 # root to ``sys.path``.
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-# Importing asf.models populates Base.metadata with every table.
+# Importing soy.models populates Base.metadata with every table.
 # This must happen *after* sys.path is adjusted above.
-from asf.models import Base  # noqa: E402
+from soy.models import Base  # noqa: E402
 
 # Alembic Config object provides access to alembic.ini values.
 config = context.config
@@ -54,7 +54,7 @@ config = context.config
 #
 # ``disable_existing_loggers=False`` is important: migrations are run
 # IN-PROCESS by the FastAPI ``lifespan`` hook (via
-# ``asf.db.run_alembic_upgrade``). The default ``fileConfig`` behaviour
+# ``soy.db.run_alembic_upgrade``). The default ``fileConfig`` behaviour
 # (``disable_existing_loggers=True``) would tear down every already-
 # configured ``asf.*`` logger the moment the app runs its startup
 # migration, silently breaking the application's structured logging

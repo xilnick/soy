@@ -1,5 +1,5 @@
 """
-asf.services
+soy.services
 ============
 
 ASF domain services (PraisonAI worker, MC sync, Git ops, DeerFlow

@@ -1,5 +1,5 @@
 """
-asf.models.mission
+soy.models.mission
 ==================
 
 ``Mission`` ORM model.
@@ -28,15 +28,15 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from asf.models.base import Base, TimestampMixin, Uuid
-from asf.models.enums import MissionStatus
+from soy.models.base import Base, TimestampMixin, Uuid
+from soy.models.enums import MissionStatus
 
 if TYPE_CHECKING:
-    from asf.models.agent import Agent
-    from asf.models.approval import Approval
-    from asf.models.chat_message import ChatMessage
-    from asf.models.execution import Execution
-    from asf.models.task import Task
+    from soy.models.agent import Agent
+    from soy.models.approval import Approval
+    from soy.models.chat_message import ChatMessage
+    from soy.models.execution import Execution
+    from soy.models.task import Task
 
 
 class Mission(Base, TimestampMixin):

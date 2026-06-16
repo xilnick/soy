@@ -1,11 +1,11 @@
 """
-asf.schemas
+soy.schemas
 ============
 
 Pydantic request/response schemas for the ASF API.
 
 These models are intentionally separate from the SQLAlchemy ORM
-models in :mod:`asf.models`. The ORM models describe the persisted
+models in :mod:`soy.models`. The ORM models describe the persisted
 shape; the schemas describe the wire format. Keeping them apart lets
 us evolve the database schema independently from the public API
 contract (e.g., rename an internal column without breaking clients).
@@ -19,7 +19,7 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from asf.models.enums import (
+from soy.models.enums import (
     AgentRole,
     AgentStatus,
     ApprovalDecision,

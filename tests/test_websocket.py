@@ -22,11 +22,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from asf.db import get_db, get_session_factory
-from asf.main import app
-from asf.models import Mission
-from asf.models.base import Base
-import asf.models  # noqa: F401
+from soy.db import get_db, get_session_factory
+from soy.main import app
+from soy.models import Mission
+from soy.models.base import Base
+import soy.models  # noqa: F401
 
 
 @pytest.fixture
@@ -35,8 +35,8 @@ def engine(tmp_path, monkeypatch):
     db_path = tmp_path / "asf_test.db"
     url = f"sqlite:///{db_path}"
     monkeypatch.setenv("ASF_DATABASE_URL", url)
-    from asf import db as db_mod
-    from asf.services.praisonai_worker import reset_worker
+    from soy import db as db_mod
+    from soy.services.praisonai_worker import reset_worker
 
     reset_worker()
     db_mod.reset_engine()
@@ -99,7 +99,7 @@ def _create_mission(client) -> dict:
 # Module-level (no TestClient needed)
 # ---------------------------------------------------------------------------
 def test_publish_routes_to_matching_mission():
-    from asf.ws import events
+    from soy.ws import events
 
     events.unregister("")  # in case the previous test left a client
     client = events.register("mission-x")
@@ -115,7 +115,7 @@ def test_publish_routes_to_matching_mission():
 
 
 def test_publish_does_not_route_to_other_mission():
-    from asf.ws import events
+    from soy.ws import events
 
     client = events.register("mission-y")
     try:
@@ -129,7 +129,7 @@ def test_publish_does_not_route_to_other_mission():
 
 
 def test_publish_routes_to_global_subscriber():
-    from asf.ws import events
+    from soy.ws import events
 
     global_client = events.register("*")
     try:
@@ -142,7 +142,7 @@ def test_publish_routes_to_global_subscriber():
 
 
 def test_publish_broadcasts_to_multiple_subscribers():
-    from asf.ws import events
+    from soy.ws import events
 
     a = events.register("mission-a")
     b = events.register("mission-a")
@@ -188,7 +188,7 @@ def test_websocket_connects_and_receives_hello(client, session_factory):
         assert hello["type"] == "ws.hello"
         assert hello["payload"]["mission_id"] == mission["id"]
         # Trigger an event; the subscriber should receive it.
-        from asf.ws import events
+        from soy.ws import events
         events.publish("mission.planning", {"mission_id": mission["id"]})
         envelope = ws.receive_json()
         assert envelope["type"] == "mission.planning"
@@ -210,7 +210,7 @@ def test_cross_thread_publish_wakes_parked_drain():
     time out.
     """
     import threading
-    from asf.ws import events
+    from soy.ws import events
 
     captured: dict = {}
 
@@ -234,7 +234,7 @@ def test_cross_thread_publish_wakes_parked_drain():
 
 def test_publish_bounded_queue_drops_oldest(monkeypatch):
     """A bounded per-client queue evicts the oldest event on overflow."""
-    from asf.ws import events
+    from soy.ws import events
 
     monkeypatch.setattr(events, "_QUEUE_MAXSIZE", 3)
     client = events.register("m-bound")  # no running loop → inline enqueue
@@ -275,7 +275,7 @@ def test_wildcard_subscription_allowed_with_token(client, monkeypatch):
         assert hello["type"] == "ws.hello"
         assert hello["payload"]["mission_id"] == "*"
         # The firehose receives any mission's events.
-        from asf.ws import events
+        from soy.ws import events
         events.publish("mission.created", {"mission_id": "anything"})
         env = ws.receive_json()
         assert env["type"] == "mission.created"
@@ -296,7 +296,7 @@ def test_noncanonical_uuid_path_receives_events(client):
     with client.websocket_connect(f"/ws/missions/{upper}/events") as ws:
         hello = ws.receive_json()
         assert hello["payload"]["mission_id"] == mission["id"]  # canonical
-        from asf.ws import events
+        from soy.ws import events
         events.publish("mission.planning", {"mission_id": mission["id"]})
         env = ws.receive_json()
         assert env["type"] == "mission.planning"
@@ -312,7 +312,7 @@ def test_publish_routes_through_loop_when_bound():
     uncalled and fail this test (unlike the timing-dependent
     cross-thread test, this fails closed).
     """
-    from asf.ws import events
+    from soy.ws import events
 
     class _RecordingLoop:
         def __init__(self):
@@ -349,7 +349,7 @@ def test_idle_client_unregistered_on_disconnect(client):
     would mask a park-forever-in-drain() regression).
     """
     import time as _t
-    from asf.ws import events
+    from soy.ws import events
 
     mission = _create_mission(client)
     mid = mission["id"]

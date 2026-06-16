@@ -1,16 +1,16 @@
-"""Tests for structured JSON logging (asf.logging_config)."""
+"""Tests for structured JSON logging (soy.logging_config)."""
 
 from __future__ import annotations
 
 import json
 import logging
 
-from asf.logging_config import JsonFormatter, configure_logging, _HANDLER_MARKER
+from soy.logging_config import JsonFormatter, configure_logging, _HANDLER_MARKER
 
 
 def _record(**extra):
     rec = logging.LogRecord(
-        "asf.test", logging.INFO, __file__, 10, "hello %s", ("world",), None,
+        "soy.test", logging.INFO, __file__, 10, "hello %s", ("world",), None,
     )
     for k, v in extra.items():
         setattr(rec, k, v)
@@ -21,7 +21,7 @@ def test_json_formatter_emits_valid_json():
     out = JsonFormatter().format(_record())
     d = json.loads(out)
     assert d["level"] == "INFO"
-    assert d["logger"] == "asf.test"
+    assert d["logger"] == "soy.test"
     assert d["message"] == "hello world"
     assert "ts" in d and d["ts"].endswith("+00:00")
 
@@ -41,7 +41,7 @@ def test_json_formatter_extra_does_not_clobber_canonical_keys():
     )
     d = json.loads(out)
     assert d["level"] == "INFO"
-    assert d["logger"] == "asf.test"
+    assert d["logger"] == "soy.test"
     assert d["ts"].endswith("+00:00")
     assert "exc" not in d  # no real exc_info → canonical exc absent, not "x"
 
@@ -58,7 +58,7 @@ def test_json_formatter_renders_exception():
     except ValueError:
         import sys
         rec = logging.LogRecord(
-            "asf.test", logging.ERROR, __file__, 1, "failed", (), sys.exc_info(),
+            "soy.test", logging.ERROR, __file__, 1, "failed", (), sys.exc_info(),
         )
     d = json.loads(JsonFormatter().format(rec))
     assert "exc" in d and "ValueError: boom" in d["exc"]
@@ -98,7 +98,7 @@ def test_configure_logging_text_mode(monkeypatch):
 
 
 def test_reset_logging_removes_handler(monkeypatch):
-    from asf.logging_config import reset_logging
+    from soy.logging_config import reset_logging
 
     monkeypatch.setenv("ASF_LOG_FORMAT", "json")
     configure_logging()

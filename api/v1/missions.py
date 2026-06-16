@@ -1,11 +1,11 @@
 """
-asf.api.v1.missions
+soy.api.v1.missions
 ===================
 
 Mission CRUD and state-machine endpoints.
 
 The router is mounted under ``/api/v1/missions`` by
-:mod:`asf.api.v1.router`. It implements the full surface from the
+:mod:`soy.api.v1.router`. It implements the full surface from the
 mission CRUD + state machine feature spec:
 
   * ``POST   /api/v1/missions``             — create a mission.
@@ -23,7 +23,7 @@ returns HTTP 409 with a structured error code (``concurrent_transition``).
 
 Error format: every error response carries a machine-readable
 ``code`` field at the top level alongside a human ``detail`` string.
-The exception handlers in :mod:`asf.errors` flatten FastAPI's default
+The exception handlers in :mod:`soy.errors` flatten FastAPI's default
 ``{"detail": ...}`` envelope so the response body matches the
 validation contract directly.
 """
@@ -40,12 +40,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from asf.db import get_db
-from asf.errors import raise_http_error
-from asf.models.approval import Approval
-from asf.models.enums import ApprovalDecision, ApprovalGateType, MissionStatus
-from asf.models.mission import Mission
-from asf.schemas import (
+from soy.db import get_db
+from soy.errors import raise_http_error
+from soy.models.approval import Approval
+from soy.models.enums import ApprovalDecision, ApprovalGateType, MissionStatus
+from soy.models.mission import Mission
+from soy.schemas import (
     ApprovalResponse,
     ApproveRequest,
     MissionCreate,
@@ -56,11 +56,11 @@ from asf.schemas import (
     TransitionRequest,
     TransitionResponse,
 )
-from asf.services import mission_control_sync as mc_sync
-from asf.services.praisonai_trigger import trigger_planning_phase
-from asf.state_machine import mission_state_machine
+from soy.services import mission_control_sync as mc_sync
+from soy.services.praisonai_trigger import trigger_planning_phase
+from soy.state_machine import mission_state_machine
 
-logger = logging.getLogger("asf.api.v1.missions")
+logger = logging.getLogger("soy.api.v1.missions")
 
 router = APIRouter(prefix="/missions", tags=["missions"])
 
@@ -457,7 +457,7 @@ def transition_mission(
 ) -> TransitionResponse:
     """Move the mission to a new status.
 
-    The state machine in :mod:`asf.state_machine` decides whether the
+    The state machine in :mod:`soy.state_machine` decides whether the
     transition is allowed. Invalid transitions return HTTP 400 with
     the list of allowed targets so the client can render an
     actionable error.
@@ -543,8 +543,8 @@ def transition_mission(
     elif target == MissionStatus.merged:
         # Merged requires at least one approval row with decision
         # = approve.
-        from asf.models.approval import Approval
-        from asf.models.enums import ApprovalDecision, ApprovalGateType
+        from soy.models.approval import Approval
+        from soy.models.enums import ApprovalDecision, ApprovalGateType
 
         approval_count = (
             db.query(func.count(Approval.id))

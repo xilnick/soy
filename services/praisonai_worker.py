@@ -1,5 +1,5 @@
 """
-asf.services.praisonai_worker
+soy.services.praisonai_worker
 =============================
 
 ``ASFWorker`` — the bridge between the ASF domain layer (DB rows)
@@ -23,7 +23,7 @@ Responsibilities
   be bypassed by the LLM.
 
 * **Model resolution.** The worker delegates to
-  :mod:`asf.services.model_resolver` so the routing rules (cloud
+  :mod:`soy.services.model_resolver` so the routing rules (cloud
   vs local Ollama, API key injection) live in one place.
 
 * **3-try retry rule.** When a PraisonAI task returns
@@ -51,7 +51,7 @@ Responsibilities
 The worker is intentionally side-effect-only: it mutates the
 database (inserts ``executions`` rows, updates ``tasks`` and
 ``missions``) and broadcasts WebSocket events, but does not own
-HTTP routing. The router in :mod:`asf.api.v1.tasks` calls
+HTTP routing. The router in :mod:`soy.api.v1.tasks` calls
 :meth:`ASFWorker.execute_task` and serialises the result.
 """
 
@@ -70,21 +70,21 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-import asf.db  # noqa: F401  — referenced lazily via _default_session_factory
-from asf.models.agent import Agent
-from asf.models.enums import (
+import soy.db  # noqa: F401  — referenced lazily via _default_session_factory
+from soy.models.agent import Agent
+from soy.models.enums import (
     AgentRole,
     AgentStatus,
     ExecutionStatus,
     MissionStatus,
     TaskStatus,
 )
-from asf.models.execution import Execution
-from asf.models.mission import Mission
-from asf.models.task import Task
-from asf.services.model_resolver import resolve_model
+from soy.models.execution import Execution
+from soy.models.mission import Mission
+from soy.models.task import Task
+from soy.services.model_resolver import resolve_model
 
-logger = logging.getLogger("asf.services.praisonai_worker")
+logger = logging.getLogger("soy.services.praisonai_worker")
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ class TaskExecutionResult:
     """Outcome of a single task execution.
 
     The router serialises this into the API response (see
-    :class:`asf.schemas.TaskExecuteResponse`). The fields are
+    :class:`soy.schemas.TaskExecuteResponse`). The fields are
     intentionally simple so the response is deterministic.
     """
 
@@ -183,22 +183,22 @@ class ASFWorker:
         event_publisher: Optional[Callable[[str, Dict[str, Any]], None]] = None,
     ) -> None:
         # Resolve ``get_session_local`` lazily on every call so
-        # tests that replace ``asf.db`` (or reset the engine
+        # tests that replace ``soy.db`` (or reset the engine
         # cache) are honoured. The previous implementation
         # captured the function at import time, which made
         # the worker insensitive to engine resets.
         def _default_session_factory() -> Session:
-            import asf.db as _mod
+            import soy.db as _mod
             return _mod.get_session_local()()
         self._session_factory = session_factory or _default_session_factory
         # Eagerly resolve the sessionmaker so ``with`` works
         # against both shapes. Always look it up via the
         # module reference (not the imported name) so tests
-        # that patch ``asf.db.get_session_local`` are honoured.
+        # that patch ``soy.db.get_session_local`` are honoured.
         if session_factory is not None:
             self._sessionmaker = session_factory
         else:
-            import asf.db as _mod
+            import soy.db as _mod
             self._sessionmaker = _mod.get_session_local()
         # Two distinct pools. ``_executor`` fans out the parallel
         # task layer in :meth:`execute_mission_tasks`; each fanned-out
@@ -1157,7 +1157,7 @@ def reset_worker() -> None:
     The executor pool is shut down (without blocking on in-flight
     work) before the singleton is dropped. Otherwise the pool's
     threads outlive the test that spawned them and — because a
-    worker resolves ``asf.db.get_session_local()`` — can rebuild the
+    worker resolves ``soy.db.get_session_local()`` — can rebuild the
     cached engine against a *stale* ``ASF_DATABASE_URL`` after the
     next test has already reset it, silently corrupting that test's
     database binding. Production never calls this function (the pool

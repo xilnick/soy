@@ -1,5 +1,5 @@
 """
-asf.errors
+soy.errors
 ==========
 
 Structured error helpers and FastAPI exception handlers.
@@ -31,7 +31,7 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-logger = logging.getLogger("asf.errors")
+logger = logging.getLogger("soy.errors")
 
 
 def _err(code: str, message: str, **extra: Any) -> Dict[str, Any]:
@@ -116,7 +116,7 @@ async def validation_exception_handler(
 def register_exception_handlers(app: FastAPI) -> None:
     """Install the structured error handlers on ``app``.
 
-    Called from :mod:`asf.main` so every endpoint (including future
+    Called from :mod:`soy.main` so every endpoint (including future
     routers for agents, tasks, executions, approvals, chat) inherits
     the same shape.
     """

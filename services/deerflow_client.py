@@ -1,5 +1,5 @@
 """
-asf.services.deerflow_client
+soy.services.deerflow_client
 ============================
 
 Optional integration with the DeerFlow sandbox (the shared Piperoni
@@ -19,7 +19,7 @@ best-effort with a timeout and never raise into the caller.
    :func:`maybe_trigger_sandbox` helper is the integration seam the
    execution layer calls when sandboxed execution is wired (it ties to
    the agent ``sandbox`` flag — see
-   :func:`asf.services.praisonai_worker.tools_for_sandbox`).
+   :func:`soy.services.praisonai_worker.tools_for_sandbox`).
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from asf import config
+from soy import config
 
-logger = logging.getLogger("asf.services.deerflow_client")
+logger = logging.getLogger("soy.services.deerflow_client")
 
 
 class DeerFlowClient:

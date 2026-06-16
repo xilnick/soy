@@ -32,9 +32,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from asf.db import get_db
-from asf.main import app
-from asf.models import (
+from soy.db import get_db
+from soy.main import app
+from soy.models import (
     Agent,
     AgentRole,
     AgentStatus,
@@ -44,8 +44,8 @@ from asf.models import (
     Task,
     TaskStatus,
 )
-from asf.models.base import Base
-import asf.models  # noqa: F401
+from soy.models.base import Base
+import soy.models  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -120,8 +120,8 @@ def engine(tmp_path, monkeypatch):
     db_path = tmp_path / "asf_test.db"
     url = f"sqlite:///{db_path}"
     monkeypatch.setenv("ASF_DATABASE_URL", url)
-    from asf import db as db_mod
-    from asf.services.praisonai_worker import reset_worker
+    from soy import db as db_mod
+    from soy.services.praisonai_worker import reset_worker
 
     reset_worker()
     db_mod.reset_engine()
@@ -166,7 +166,7 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
         "praisonaiagents.Agents", _StubWorkflow, raising=False,
     )
     # Short backoff for tests.
-    from asf.services import praisonai_worker
+    from soy.services import praisonai_worker
     monkeypatch.setattr(
         praisonai_worker, "RETRY_BACKOFF_SECONDS", (0, 0),
     )
@@ -178,8 +178,8 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
     # Without this the worker holds a sessionmaker bound to a
     # different (or stale) engine and the lookup
     # ``db.get(Agent, ...)`` returns None.
-    import asf.db as _asf_db
-    # The worker calls ``asf.db.get_session_local()`` to
+    import soy.db as _asf_db
+    # The worker calls ``soy.db.get_session_local()`` to
     # obtain the sessionmaker. Tests inject a sessionmaker
     # directly, so wrap it in a function with the same
     # signature as the production ``get_session_local``.
@@ -189,7 +189,7 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
     # Force the worker singleton to be rebuilt on the next
     # ``get_worker()`` call so it picks up the patched
     # ``get_session_local``.
-    import asf.services.praisonai_worker as paw_mod
+    import soy.services.praisonai_worker as paw_mod
     paw_mod.reset_worker()
 
     with TestClient(app) as c:
@@ -411,7 +411,7 @@ def test_successful_execution_halts_retry_chain(client, session_factory):
 # VAL-API-030 — task timeout writes status=failed with error=timeout
 # ---------------------------------------------------------------------------
 def test_task_timeout_writes_timeout_status(client, session_factory, monkeypatch):
-    from asf.services import praisonai_worker
+    from soy.services import praisonai_worker
 
     mission = _create_mission(client)
     agent = _create_agent(client, mission["id"])
@@ -578,11 +578,11 @@ def test_parallel_execution_supports_multiple_tasks(
 
     # Re-route the worker + request handler to the parallel
     # engine for the duration of this test.
-    import asf.db as _asf_db
+    import soy.db as _asf_db
     monkeypatch.setattr(
         _asf_db, "get_session_local", lambda: parallel_sf,
     )
-    import asf.services.praisonai_worker as paw_mod
+    import soy.services.praisonai_worker as paw_mod
     paw_mod.reset_worker()
     # Build a generator function (not a lambda) for the
     # ``get_db`` dependency override. FastAPI iterates the
@@ -681,7 +681,7 @@ def _create_task_on(
 # Tools helper — unit test
 # ---------------------------------------------------------------------------
 def test_tools_for_sandbox():
-    from asf.services.praisonai_worker import (
+    from soy.services.praisonai_worker import (
         SANDBOXED_TOOLS, UNSANDBOXED_TOOLS, tools_for_sandbox,
     )
     assert tools_for_sandbox(True) == SANDBOXED_TOOLS
@@ -723,9 +723,9 @@ def test_parallel_execution_no_deadlock_with_many_tasks(
     parallel_sf = sessionmaker(
         bind=parallel_eng, autoflush=False, autocommit=False, future=True,
     )
-    import asf.db as _asf_db
+    import soy.db as _asf_db
     monkeypatch.setattr(_asf_db, "get_session_local", lambda: parallel_sf)
-    import asf.services.praisonai_worker as paw_mod
+    import soy.services.praisonai_worker as paw_mod
     paw_mod.reset_worker()
 
     def _get_db_override():
@@ -869,7 +869,7 @@ def test_invoke_workflow_does_not_double_run_on_internal_typeerror():
     doubling side effects. The signature-based detection calls start
     exactly once.
     """
-    from asf.services.praisonai_worker import ASFWorker
+    from soy.services.praisonai_worker import ASFWorker
 
     class _FakeWorkflow:
         def __init__(self) -> None:
@@ -947,7 +947,7 @@ def test_default_model_fallback_is_local_no_key(client, monkeypatch):
     monkeypatch.delenv("ASF_MODEL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
-    from asf.services.praisonai_worker import get_worker
+    from soy.services.praisonai_worker import get_worker
 
     mission = _create_mission(client)
     agent = _create_agent(client, mission["id"])  # model is None

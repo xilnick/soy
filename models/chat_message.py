@@ -1,5 +1,5 @@
 """
-asf.models.chat_message
+soy.models.chat_message
 ======================
 
 ``ChatMessage`` ORM model.
@@ -28,11 +28,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from asf.models.base import Base, TimestampMixin, Uuid
-from asf.models.enums import ChatSenderType
+from soy.models.base import Base, TimestampMixin, Uuid
+from soy.models.enums import ChatSenderType
 
 if TYPE_CHECKING:
-    from asf.models.mission import Mission
+    from soy.models.mission import Mission
 
 
 class ChatMessage(Base, TimestampMixin):

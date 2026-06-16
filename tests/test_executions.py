@@ -2,7 +2,7 @@
 Tests for the execution log read endpoints.
 
 Covers the read-side of the execution surface. The write-side is
-exercised by :mod:`asf.tests.test_tasks`; this module only
+exercised by :mod:`soy.tests.test_tasks`; this module only
 verifies that the GET endpoints serve the rows the worker
 inserts.
 """
@@ -18,11 +18,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from asf.db import get_db
-from asf.main import app
-from asf.models import Agent, AgentRole, Execution, ExecutionStatus, Mission, Task, TaskStatus
-from asf.models.base import Base
-import asf.models  # noqa: F401
+from soy.db import get_db
+from soy.main import app
+from soy.models import Agent, AgentRole, Execution, ExecutionStatus, Mission, Task, TaskStatus
+from soy.models.base import Base
+import soy.models  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -60,8 +60,8 @@ def engine(tmp_path, monkeypatch):
     db_path = tmp_path / "asf_test.db"
     url = f"sqlite:///{db_path}"
     monkeypatch.setenv("ASF_DATABASE_URL", url)
-    from asf import db as db_mod
-    from asf.services.praisonai_worker import reset_worker
+    from soy import db as db_mod
+    from soy.services.praisonai_worker import reset_worker
 
     reset_worker()
     db_mod.reset_engine()

@@ -1,11 +1,11 @@
 """
-asf.api.v1.tasks
+soy.api.v1.tasks
 ================
 
 Task CRUD and execution endpoints.
 
 The router is mounted under ``/api/v1/missions/{mission_id}`` by
-:mod:`asf.api.v1.router`. It implements:
+:mod:`soy.api.v1.router`. It implements:
 
   * ``POST /api/v1/missions/{id}/agents/{aid}/tasks``  — create
   * ``GET  /api/v1/missions/{id}/tasks``                — list
@@ -16,7 +16,7 @@ The router is mounted under ``/api/v1/missions/{mission_id}`` by
 Each task row maps to a ``praisonaiagents.Task`` at execution
 time. The 3-try retry rule, timeouts, sandbox tool list, and
 escalation policy all live in
-:mod:`asf.services.praisonai_worker`; the router delegates to
+:mod:`soy.services.praisonai_worker`; the router delegates to
 that worker and serialises the result.
 """
 
@@ -30,26 +30,26 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from asf.db import get_db
-from asf.errors import raise_http_error
-from asf.models.agent import Agent
-from asf.models.enums import TaskStatus
-from asf.models.mission import Mission
-from asf.models.task import Task
-from asf.schemas import (
+from soy.db import get_db
+from soy.errors import raise_http_error
+from soy.models.agent import Agent
+from soy.models.enums import TaskStatus
+from soy.models.mission import Mission
+from soy.models.task import Task
+from soy.schemas import (
     TaskCreate,
     TaskExecuteRequest,
     TaskExecuteResponse,
     TaskList,
     TaskRead,
 )
-from asf.services import mission_control_sync as mc_sync
-from asf.services.praisonai_worker import (
+from soy.services import mission_control_sync as mc_sync
+from soy.services.praisonai_worker import (
     TaskExecutionResult,
     get_worker,
 )
 
-logger = logging.getLogger("asf.api.v1.tasks")
+logger = logging.getLogger("soy.api.v1.tasks")
 
 router = APIRouter(prefix="/missions", tags=["tasks"])
 

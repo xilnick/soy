@@ -1,13 +1,13 @@
 """
-asf.config
+soy.config
 ==========
 
-Runtime configuration for the ASF backend's optional integrations
+Runtime configuration for the Soy backend's optional integrations
 (structured logging, Git-as-SSOT, Mission Control sync, DeerFlow).
 
 Every value is read from the environment at *call time* — never cached
-at import — for the same reason :mod:`asf.db` reads ``ASF_DATABASE_URL``
-lazily: the Piperoni deploy writes ``~/asf/.env`` before the process
+at import — for the same reason :mod:`soy.db` reads ``ASF_DATABASE_URL``
+lazily: the Piperoni deploy writes ``~/repos/soy/.env`` before the process
 starts, and unit tests ``monkeypatch.setenv`` between cases. A cached
 import-time read would freeze the value and silently defeat both.
 

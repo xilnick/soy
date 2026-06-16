@@ -1,5 +1,5 @@
 """
-asf.services.praisonai_trigger
+soy.services.praisonai_trigger
 ===============================
 
 Triggers the PraisonAI planning phase when a mission transitions
@@ -30,7 +30,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger("asf.services.praisonai_trigger")
+logger = logging.getLogger("soy.services.praisonai_trigger")
 
 
 def _resolve_model(model_name: Optional[str] = None) -> Dict[str, Any]:
@@ -46,7 +46,7 @@ def _resolve_model(model_name: Optional[str] = None) -> Dict[str, Any]:
     The resolved API key is deliberately NOT included: this dict is
     persisted to the database and serialised in mission responses, so
     embedding the credential would leak it durably. The worker resolves
-    the key itself (via :mod:`asf.services.model_resolver`) when it
+    the key itself (via :mod:`soy.services.model_resolver`) when it
     actually constructs an agent.
     """
     name = model_name or os.getenv("ASF_MODEL", "kimi-k2.6:cloud")

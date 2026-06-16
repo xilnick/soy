@@ -1,5 +1,5 @@
 """
-asf.services.git_service
+soy.services.git_service
 =========================
 
 Git-as-SSOT: create the feature branch and write the spec for a mission.
@@ -25,9 +25,9 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from asf.models.mission import Mission
+from soy.models.mission import Mission
 
-logger = logging.getLogger("asf.services.git_service")
+logger = logging.getLogger("soy.services.git_service")
 
 
 def render_spec_template(mission: Mission) -> str:
@@ -66,7 +66,7 @@ class GitService:
         push_enabled: bool | None = None,
         spec_path: str | None = None,
     ) -> None:
-        from asf import config
+        from soy import config
 
         self.workdir = workdir or config.git_workdir()
         self.author_name = author_name or config.git_author_name()

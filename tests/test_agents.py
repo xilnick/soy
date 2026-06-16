@@ -10,7 +10,7 @@ Maps to validation contract assertions:
 
 The tests use an in-memory SQLite engine so they are PG-agnostic.
 The ``client`` fixture is the same one used in
-:mod:`asf.tests.test_missions`; the ASF worker is monkey-patched
+:mod:`soy.tests.test_missions`; the ASF worker is monkey-patched
 so PraisonAI does not actually call an LLM (the unit tests only
 verify the construction path, not the execution path).
 """
@@ -26,9 +26,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from asf.db import get_db
-from asf.main import app
-from asf.models import (
+from soy.db import get_db
+from soy.main import app
+from soy.models import (
     Agent,
     AgentRole,
     AgentStatus,
@@ -37,8 +37,8 @@ from asf.models import (
     Task,
     TaskStatus,
 )
-from asf.models.base import Base
-import asf.models  # noqa: F401
+from soy.models.base import Base
+import soy.models  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -59,8 +59,8 @@ def engine(tmp_path, monkeypatch):
     monkeypatch.setenv("ASF_DATABASE_URL", url)
     # Reset the cached engine so the next ``get_session_local``
     # call rebuilds against the new URL.
-    from asf import db as db_mod
-    from asf.services.praisonai_worker import reset_worker
+    from soy import db as db_mod
+    from soy.services.praisonai_worker import reset_worker
 
     reset_worker()
     db_mod.reset_engine()
@@ -99,7 +99,7 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
     # exercises the worker without actually instantiating a
     # real Agent (which would try to resolve a model and
     # connect to an LLM provider that is not reachable from CI).
-    from asf.services import praisonai_worker
+    from soy.services import praisonai_worker
 
     class _StubAgent:
         def __init__(self, *args, **kwargs):
@@ -312,7 +312,7 @@ def test_create_agent_syncs_to_mission_control_when_enabled(client, monkeypatch)
     Proves the router wiring (not just the helper). With the flag off
     — the default exercised by every other test — no push occurs.
     """
-    from asf.services import mission_control_sync as mc
+    from soy.services import mission_control_sync as mc
 
     monkeypatch.setenv("ASF_MC_SYNC_ENABLED", "true")
     calls = []

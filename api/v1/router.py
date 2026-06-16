@@ -1,10 +1,10 @@
 """
-asf.api.v1.router
+soy.api.v1.router
 =================
 
 Aggregates the v1 API routers.
 
-This module exists so :mod:`asf.main` has a single import to wire
+This module exists so :mod:`soy.main` has a single import to wire
 into the FastAPI app. New v1 routers (agents, tasks, executions,
 approvals, chat, webhooks) are added here in their own milestones.
 """
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from asf.api.v1 import (
+from soy.api.v1 import (
     agents,
     executions,
     logs,

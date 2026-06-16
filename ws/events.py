@@ -1,19 +1,19 @@
 """
-asf.ws.events
+soy.ws.events
 =============
 
 Real-time event bus for ASF.
 
 The WebSocket layer is the canonical "fan-out" surface for
 agent / task / mission lifecycle events. Producers
-(:class:`asf.services.praisonai_worker.ASFWorker`) call
+(:class:`soy.services.praisonai_worker.ASFWorker`) call
 :func:`publish` from any thread; the bus hands the event to every
 WebSocket client connected to the relevant mission.
 
 This module is intentionally thin: it does not own the database,
 it does not retry failed publishes, and it does not authenticate
 WebSocket clients. The FastAPI router in
-:mod:`asf.api.v1.websocket` (added in a later milestone) wires
+:mod:`soy.api.v1.websocket` (added in a later milestone) wires
 the endpoint up; here we just provide the in-memory registry and
 the publish helper.
 
@@ -46,7 +46,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
-logger = logging.getLogger("asf.ws.events")
+logger = logging.getLogger("soy.ws.events")
 
 # Per-client queue bound. A subscriber this far behind is treated as
 # slow/dead: the oldest event is dropped to make room for the newest.
@@ -249,7 +249,7 @@ def install_as_publisher() -> None:
     it once. The worker module looks up the singleton publisher
     so the wiring is one-line at startup.
     """
-    from asf.services.praisonai_worker import set_event_publisher
+    from soy.services.praisonai_worker import set_event_publisher
 
     set_event_publisher(publish)
 

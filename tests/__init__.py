@@ -1,11 +1,11 @@
 """
-asf.tests
+soy.tests
 =========
 
 Unit tests for the ASF domain — primarily the SQLAlchemy models, the
 Alembic migration, and the JSONB / ENUM / FK invariants. These tests
 are fast and require only the ASF package itself plus SQLAlchemy +
-Alembic. They are designed to be run with ``pytest asf/tests/`` from
+Alembic. They are designed to be run with ``pytest soy/tests/`` from
 the project root.
 
 By default the tests use a local PostgreSQL test database if one is

@@ -18,13 +18,13 @@ so that:
 
 Subpackages:
 
-  * ``asf.models``     — SQLAlchemy ORM models and Alembic Base.
-  * ``asf.services``   — Domain services (PraisonAI worker, MC sync,
+  * ``soy.models``     — SQLAlchemy ORM models and Alembic Base.
+  * ``soy.services``   — Domain services (PraisonAI worker, MC sync,
                           Git operations, DeerFlow trigger).
-  * ``asf.api.v1``     — FastAPI routers for REST API v1.
-  * ``asf.ws``         — WebSocket endpoint.
-  * ``asf.alembic``    — Alembic environment + migration scripts.
-  * ``asf.tests``      — pytest test suite.
+  * ``soy.api.v1``     — FastAPI routers for REST API v1.
+  * ``soy.ws``         — WebSocket endpoint.
+  * ``soy.alembic``    — Alembic environment + migration scripts.
+  * ``soy.tests``      — pytest test suite.
 """
 
 __version__ = "0.1.0"

@@ -1,8 +1,8 @@
 """Pytest configuration shared by the ASF test suite.
 
-The tests need to import the ``asf`` package regardless of where
+The tests need to import the ``soy`` package regardless of where
 pytest is invoked from. We add the project root to ``sys.path`` so
-``import asf.models`` works when running ``pytest asf/tests/`` from
+``import soy.models`` works when running ``pytest soy/tests/`` from
 the project root, or ``pytest`` from any subdirectory.
 """
 
@@ -42,8 +42,8 @@ def _reset_db_engine(request):
     """
     import sys
     try:
-        from asf import db as db_mod
-        from asf.services.praisonai_worker import reset_worker
+        from soy import db as db_mod
+        from soy.services.praisonai_worker import reset_worker
 
         reset_worker()
         db_mod.reset_engine()
@@ -57,8 +57,8 @@ def _reset_db_engine(request):
         pass
     yield
     try:
-        from asf import db as db_mod
-        from asf.services.praisonai_worker import reset_worker
+        from soy import db as db_mod
+        from soy.services.praisonai_worker import reset_worker
 
         reset_worker()
         db_mod.reset_engine()

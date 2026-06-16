@@ -1,17 +1,17 @@
 """
-asf.db
+soy.db
 ======
 
-Database connection helpers for ASF.
+Database connection helpers for Soy.
 
-The same module is used by the FastAPI app (``asf.main``), the Alembic
+The same module is used by the FastAPI app (``soy.main``), the Alembic
 ``env.py`` environment, and unit tests. It centralises the SQLAlchemy
 engine, session factory, and a FastAPI-friendly ``get_db`` dependency.
 
 The database URL is read from the ``ASF_DATABASE_URL`` environment
 variable (which the Piperoni deploy blueprint writes into
-``~/asf/.env``). When the variable is not set, the module falls back to
-``sqlite:///./asf_dev.db`` so that local development and the Alembic
+``~/repos/soy/.env``). When the variable is not set, the module falls back to
+``sqlite:///./soy_dev.db`` so that local development and the Alembic
 ``offline`` mode work without a running PostgreSQL container.
 """
 
@@ -25,19 +25,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-logger = logging.getLogger("asf.db")
+logger = logging.getLogger("soy.db")
 
 # Default fallback (used only when ASF_DATABASE_URL is not set). On the
 # VPS the deploy blueprint always writes the PostgreSQL URL into
-# ~/asf/.env so this fallback is never reached in production.
-_DEFAULT_SQLITE_URL = "sqlite:///./asf_dev.db"
+# ~/repos/soy/.env so this fallback is never reached in production.
+_DEFAULT_SQLITE_URL = "sqlite:///./soy_dev.db"
 
 
 def get_database_url() -> str:
     """Return the SQLAlchemy database URL, honoring ASF_DATABASE_URL.
 
     The value is read at call time (not module import time) so the
-    Piperoni deploy can write ``~/asf/.env`` *before* the FastAPI
+    Piperoni deploy can write ``~/repos/soy/.env`` *before* the FastAPI
     process starts and have the new URL picked up by Alembic.
     """
     url = os.getenv("ASF_DATABASE_URL", "").strip()
@@ -70,7 +70,7 @@ def _build_engine(url: str) -> Engine:
     )
 
 
-# Engine and session factory are created lazily so importing ``asf.db``
+# Engine and session factory are created lazily so importing ``soy.db``
 # in environments without a configured database (e.g. lightweight unit
 # tests that mock the engine) does not raise.
 _engine: Engine | None = None
@@ -151,9 +151,9 @@ def get_db() -> Generator[Session, None, None]:
 # Alembic invocation helper
 # ---------------------------------------------------------------------------
 def _locate_alembic_ini() -> str:
-    """Return the absolute path to ``asf/alembic.ini`` on disk.
+    """Return the absolute path to ``soy/alembic.ini`` on disk.
 
-    The path is computed relative to this file (``asf/db.py``) so the
+    The path is computed relative to this file (``soy/db.py``) so the
     helper works regardless of the process's current working directory.
     """
     asf_dir = os.path.dirname(os.path.abspath(__file__))
@@ -186,7 +186,7 @@ def run_alembic_upgrade(
     """
     # Local imports: alembic is a runtime dependency but we keep the
     # import here so test harnesses that mock the engine do not have
-    # to install alembic just to import ``asf.db``.
+    # to install alembic just to import ``soy.db``.
     from alembic import command
     from alembic.config import Config
 

@@ -1,5 +1,5 @@
 """
-asf.api.v1.websocket
+soy.api.v1.websocket
 ====================
 
 FastAPI WebSocket endpoint for real-time mission events.
@@ -8,7 +8,7 @@ The endpoint is mounted at ``/ws/missions/{mission_id}/events``.
 Clients connect with a normal WebSocket handshake; the server
 pushes JSON events as the ASF worker publishes them.
 
-The actual broadcast logic lives in :mod:`asf.ws.events`. This
+The actual broadcast logic lives in :mod:`soy.ws.events`. This
 module is the FastAPI glue: it registers the client, drains the
 event queue, and writes frames to the socket until the client
 disconnects (or the server shuts down).
@@ -25,11 +25,11 @@ import uuid
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session, sessionmaker
 
-from asf.db import get_session_factory
-from asf.models.mission import Mission
-from asf.ws import events as ws_events
+from soy.db import get_session_factory
+from soy.models.mission import Mission
+from soy.ws import events as ws_events
 
-logger = logging.getLogger("asf.api.v1.websocket")
+logger = logging.getLogger("soy.api.v1.websocket")
 
 router = APIRouter()
 

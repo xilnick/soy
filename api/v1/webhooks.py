@@ -1,5 +1,5 @@
 """
-asf.api.v1.webhooks
+soy.api.v1.webhooks
 ===================
 
 Inbound webhooks — currently the GitHub issue webhook that ingests a
@@ -9,7 +9,7 @@ mission.
 
 Flow: verify the HMAC signature → require the ``asf-run`` label →
 ingest the mission via the shared idempotent
-:func:`asf.api.v1.missions.create_mission_from_ingestion` (so the
+:func:`soy.api.v1.missions.create_mission_from_ingestion` (so the
 idempotency rules are not forked) → optionally run the Git-as-SSOT
 branch/spec step. Signature verification is default-deny: with no
 ``ASF_GITHUB_WEBHOOK_SECRET`` configured, no request is trusted.
@@ -25,13 +25,13 @@ import logging
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from asf import config
-from asf.api.v1.missions import create_mission_from_ingestion
-from asf.db import get_db
-from asf.errors import raise_http_error
-from asf.schemas import MissionCreate
+from soy import config
+from soy.api.v1.missions import create_mission_from_ingestion
+from soy.db import get_db
+from soy.errors import raise_http_error
+from soy.schemas import MissionCreate
 
-logger = logging.getLogger("asf.api.v1.webhooks")
+logger = logging.getLogger("soy.api.v1.webhooks")
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -158,7 +158,7 @@ async def github_webhook(
     # clone is local.
     if config.git_enabled() and mission.repo_url:
         try:
-            from asf.services.git_service import GitService
+            from soy.services.git_service import GitService
 
             result["git"] = GitService().create_branch_and_spec(db, mission.id)
         except Exception as exc:  # noqa: BLE001 — best-effort

@@ -1,5 +1,5 @@
 """
-asf.models.approval
+soy.models.approval
 ==================
 
 ``Approval`` ORM model.
@@ -24,11 +24,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from asf.models.base import Base, TimestampMixin, Uuid
-from asf.models.enums import ApprovalDecision, ApprovalGateType
+from soy.models.base import Base, TimestampMixin, Uuid
+from soy.models.enums import ApprovalDecision, ApprovalGateType
 
 if TYPE_CHECKING:
-    from asf.models.mission import Mission
+    from soy.models.mission import Mission
 
 
 class Approval(Base, TimestampMixin):

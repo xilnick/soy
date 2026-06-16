@@ -20,17 +20,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from asf.db import get_db
-from asf.main import app
-from asf.models.base import Base
-import asf.models  # noqa: F401  — ensure tables are registered on Base.metadata
-from asf.models.mission import Mission
-from asf.state_machine import (
+from soy.db import get_db
+from soy.main import app
+from soy.models.base import Base
+import soy.models  # noqa: F401  — ensure tables are registered on Base.metadata
+from soy.models.mission import Mission
+from soy.state_machine import (
     ALLOWED_TRANSITIONS,
     ESCALATION_REJECTION_THRESHOLD,
     MissionStateMachine,
 )
-from asf.models.enums import MissionStatus
+from soy.models.enums import MissionStatus
 
 
 # ---------------------------------------------------------------------------
@@ -52,8 +52,8 @@ def engine(monkeypatch):
     os.close(fd)
     url = f"sqlite:///{db_path}"
     monkeypatch.setenv("ASF_DATABASE_URL", url)
-    from asf import db as db_mod
-    from asf.services.praisonai_worker import reset_worker
+    from soy import db as db_mod
+    from soy.services.praisonai_worker import reset_worker
 
     reset_worker()
     db_mod.reset_engine()
@@ -283,13 +283,13 @@ def test_delete_mission_cascades(client, session_factory):
 
     # Seed a few child rows directly via SQLAlchemy to ensure the
     # cascade covers every required table.
-    from asf.models import (
+    from soy.models import (
         Agent, AgentRole, AgentStatus, Approval, ApprovalDecision,
         ApprovalGateType, ChatMessage, ChatSenderType, Execution,
         ExecutionStatus, Task, TaskStatus,
     )
     with session_factory() as db:
-        m = db.get(__import__("asf.models.mission", fromlist=["Mission"]).Mission, uuid.UUID(mid))
+        m = db.get(__import__("soy.models.mission", fromlist=["Mission"]).Mission, uuid.UUID(mid))
         agent = Agent(
             mission_id=m.id, name="coder", role=AgentRole.coder,
             status=AgentStatus.idle,
@@ -327,7 +327,7 @@ def test_delete_mission_cascades(client, session_factory):
     # Confirm the child rows are gone.
     with session_factory() as db:
         from sqlalchemy import select, func
-        from asf.models import (
+        from soy.models import (
             Agent, Approval, ChatMessage, Execution, Task,
         )
         for cls in (Agent, Approval, ChatMessage, Execution, Task):
@@ -511,7 +511,7 @@ def test_transition_to_reviewed_with_execution(client, session_factory):
 # VAL-API-012: transition to merged requires at least one approval
 # ---------------------------------------------------------------------------
 def test_transition_to_merged_requires_approval(client, session_factory):
-    from asf.models import Approval, ApprovalDecision, ApprovalGateType
+    from soy.models import Approval, ApprovalDecision, ApprovalGateType
     r = client.post("/api/v1/missions", json=_create_payload())
     mid = r.json()["id"]
     # Drive the mission to reviewed.
@@ -641,7 +641,7 @@ def test_concurrent_transition_serialization(client, session_factory):
     up in a valid state and the server must not raise. The strict
     "one succeeds, one fails" guarantee is provided by the
     ``SELECT ... FOR UPDATE`` lock at the database level (see
-    :func:`asf.api.v1.missions._lock_mission_or_404`); on
+    :func:`soy.api.v1.missions._lock_mission_or_404`); on
     PostgreSQL the lock is honoured and the second request
     returns 400 ``INVALID_TRANSITION`` (or 409
     ``CONCURRENT_TRANSITION``). On SQLite the lock is a no-op, so
@@ -656,7 +656,7 @@ def test_concurrent_transition_serialization(client, session_factory):
     # 1. Static check: the router's lock helper must emit a
     #    ``SELECT ... FOR UPDATE`` query. Without the lock the
     #    contract on PostgreSQL is unenforceable.
-    from asf.api.v1.missions import _lock_mission_or_404
+    from soy.api.v1.missions import _lock_mission_or_404
     import inspect
     src = inspect.getsource(_lock_mission_or_404)
     assert "with_for_update" in src
@@ -716,7 +716,7 @@ def test_state_machine_rejects_same_state():
 # PraisonAI trigger tests
 # ---------------------------------------------------------------------------
 def test_praisonai_trigger_returns_expected_shape():
-    from asf.services.praisonai_trigger import trigger_planning_phase
+    from soy.services.praisonai_trigger import trigger_planning_phase
     out = trigger_planning_phase(
         uuid.uuid4(),
         title="t",

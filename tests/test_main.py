@@ -1,5 +1,5 @@
 """
-Tests for the ASF FastAPI app (``asf.main``).
+Tests for the ASF FastAPI app (``soy.main``).
 
 The tests are PG-agnostic when run without
 ``ASF_TEST_DATABASE_URL`` (they only check that the routes are
@@ -16,7 +16,7 @@ import pytest
 
 def test_app_routes_registered():
     """The FastAPI app must expose ``/health`` and ``/``."""
-    from asf.main import app
+    from soy.main import app
 
     paths = {r.path for r in app.routes}
     assert "/health" in paths
@@ -26,7 +26,7 @@ def test_app_routes_registered():
 
 def test_app_metadata():
     """The FastAPI app must declare a title and version."""
-    from asf.main import app
+    from soy.main import app
 
     assert app.title
     assert app.version
@@ -35,7 +35,7 @@ def test_app_metadata():
 def test_app_serves_health():
     """Smoke test: a TestClient request to /health returns 200."""
     from fastapi.testclient import TestClient
-    from asf.main import app
+    from soy.main import app
 
     # ``ASF_RUN_MIGRATIONS_ON_STARTUP=false`` so we don't need a
     # database to serve /health. The lifespan hook logs and continues
@@ -46,7 +46,7 @@ def test_app_serves_health():
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ok"
-    assert body["service"] == "asf"
+    assert body["service"] == "soy"
 
 
 def test_lifespan_runs_migrations():
@@ -56,7 +56,7 @@ def test_lifespan_runs_migrations():
     if not test_db_url:
         pytest.skip("ASF_TEST_DATABASE_URL is not set")
     from fastapi.testclient import TestClient
-    from asf.main import app
+    from soy.main import app
 
     # Re-use the existing test URL.
     os.environ["ASF_DATABASE_URL"] = test_db_url

@@ -1,5 +1,5 @@
 """
-asf.models.task
+soy.models.task
 ===============
 
 ``Task`` ORM model.
@@ -28,13 +28,13 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from asf.models.base import Base, TimestampMixin, Uuid
-from asf.models.enums import TaskStatus
+from soy.models.base import Base, TimestampMixin, Uuid
+from soy.models.enums import TaskStatus
 
 if TYPE_CHECKING:
-    from asf.models.agent import Agent
-    from asf.models.execution import Execution
-    from asf.models.mission import Mission
+    from soy.models.agent import Agent
+    from soy.models.execution import Execution
+    from soy.models.mission import Mission
 
 
 class Task(Base, TimestampMixin):

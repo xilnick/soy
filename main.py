@@ -1,5 +1,5 @@
 """
-asf.main
+soy.main
 ========
 
 FastAPI entrypoint for the AI Software Factory.
@@ -11,7 +11,7 @@ schema is always in sync with the code, even when a fresh image is
 deployed.
 
 The schema-management concern is intentionally implemented in
-:mod:`asf.db` (the ``run_alembic_upgrade`` helper) so that the same
+:mod:`soy.db` (the ``run_alembic_upgrade`` helper) so that the same
 function can be invoked from:
 
   * the FastAPI lifespan hook (this file);
@@ -29,12 +29,12 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 
-from asf.api.v1.router import api_v1_router, ws_router
-from asf.db import run_alembic_upgrade
-from asf.errors import register_exception_handlers
-from asf.ws.events import install_as_publisher
+from soy.api.v1.router import api_v1_router, ws_router
+from soy.db import run_alembic_upgrade
+from soy.errors import register_exception_handlers
+from soy.ws.events import install_as_publisher
 
-logger = logging.getLogger("asf.main")
+logger = logging.getLogger("soy.main")
 
 
 @asynccontextmanager
@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Install structured (JSON) logging to stdout first so every
     # subsequent startup line — including migration output — is
     # captured in the structured format PM2 ships.
-    from asf.logging_config import configure_logging
+    from soy.logging_config import configure_logging
 
     configure_logging()
 
@@ -75,24 +75,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("ASF shutdown")
     # Remove the stdout log handler we installed so it does not outlive
     # the app (keeps the root logger clean across per-test lifespans).
-    from asf.logging_config import reset_logging
+    from soy.logging_config import reset_logging
 
     reset_logging()
 
 
 app = FastAPI(
-    title="ASF Backend",
+    title="Soy Backend",
     version="0.1.0",
     description=(
         "AI Software Factory — FastAPI mission orchestration backend. "
-        "See ``asf/models/`` for the schema and ``asf/alembic/`` for "
+        "See ``soy/models/`` for the schema and ``soy/alembic/`` for "
         "the migrations."
     ),
     lifespan=lifespan,
 )
 
 # Structured error handlers — every error response carries a top-level
-# ``code`` field alongside ``detail``. See :mod:`asf.errors`.
+# ``code`` field alongside ``detail``. See :mod:`soy.errors`.
 register_exception_handlers(app)
 
 # API v1 router — mission CRUD + state machine.
@@ -121,7 +121,7 @@ async def health() -> dict:
     """
     return {
         "status": "ok",
-        "service": "asf",
+        "service": "soy",
         "version": app.version,
     }
 
@@ -130,7 +130,7 @@ async def health() -> dict:
 async def root() -> dict:
     """Service root."""
     return {
-        "service": "asf",
+        "service": "soy",
         "version": app.version,
         "docs": "/docs",
         "health": "/health",
@@ -146,4 +146,4 @@ if __name__ == "__main__":  # pragma: no cover
 
     host = os.environ.get("ASF_HOST", "127.0.0.1")
     port = int(os.environ.get("ASF_SERVER_PORT", "8923"))
-    uvicorn.run("asf.main:app", host=host, port=port)
+    uvicorn.run("soy.main:app", host=host, port=port)

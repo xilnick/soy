@@ -105,7 +105,7 @@ def _uuid_column() -> sa.types.TypeEngine:
 
 
 # ---------------------------------------------------------------------------
-# ENUM value tuples — kept in sync with asf.models.enums
+# ENUM value tuples — kept in sync with soy.models.enums
 # ---------------------------------------------------------------------------
 _MISSION_STATUS = (
     "created", "planning", "approved", "rejected",

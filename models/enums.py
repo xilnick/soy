@@ -1,5 +1,5 @@
 """
-asf.models.enums
+soy.models.enums
 ================
 
 Python enum types for ASF status/role columns.

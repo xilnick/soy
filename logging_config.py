@@ -1,5 +1,5 @@
 """
-asf.logging_config
+soy.logging_config
 ===================
 
 Structured JSON logging for the ASF backend.
@@ -77,9 +77,9 @@ def configure_logging(fmt: str | None = None, level: str | None = None) -> None:
     Idempotent: a previously-installed ASF handler is removed first, so
     calling this more than once (e.g. a re-entered FastAPI lifespan in
     tests) does not stack duplicate handlers. ``fmt`` defaults to
-    :func:`asf.config.log_format` (``"json"`` unless overridden).
+    :func:`soy.config.log_format` (``"json"`` unless overridden).
     """
-    from asf import config
+    from soy import config
 
     fmt = (fmt or config.log_format()).lower()
     level = (level or config.log_level()).upper()

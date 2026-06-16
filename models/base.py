@@ -1,10 +1,10 @@
 """
-asf.models.base
+soy.models.base
 ===============
 
 SQLAlchemy ``DeclarativeBase`` for ASF.
 
-A single ``Base`` is shared by every model in ``asf.models`` so that
+A single ``Base`` is shared by every model in ``soy.models`` so that
 Alembic can read ``Base.metadata`` and autogenerate DDL diffs. The
 convention here matches modern SQLAlchemy 2.x (no legacy ``declarative_base()``
 call): every model inherits from this class and declares typed

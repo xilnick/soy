@@ -1,11 +1,11 @@
 """
-asf.api.v1.executions
+soy.api.v1.executions
 =====================
 
 Execution log read endpoints.
 
 The router is mounted under ``/api/v1/missions/{mission_id}`` by
-:mod:`asf.api.v1.router`. It implements:
+:mod:`soy.api.v1.router`. It implements:
 
   * ``GET /api/v1/missions/{id}/executions``             — list
   * ``GET /api/v1/missions/{id}/executions/{eid}``       — read
@@ -27,15 +27,15 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from asf.db import get_db
-from asf.errors import raise_http_error
-from asf.models.enums import ExecutionStatus
-from asf.models.execution import Execution
-from asf.models.mission import Mission
-from asf.models.task import Task
-from asf.schemas import ExecutionList, ExecutionRead
+from soy.db import get_db
+from soy.errors import raise_http_error
+from soy.models.enums import ExecutionStatus
+from soy.models.execution import Execution
+from soy.models.mission import Mission
+from soy.models.task import Task
+from soy.schemas import ExecutionList, ExecutionRead
 
-logger = logging.getLogger("asf.api.v1.executions")
+logger = logging.getLogger("soy.api.v1.executions")
 
 router = APIRouter(prefix="/missions", tags=["executions"])
 

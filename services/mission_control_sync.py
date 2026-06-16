@@ -1,5 +1,5 @@
 """
-asf.services.mission_control_sync
+soy.services.mission_control_sync
 =================================
 
 Pushes a read-replica of ASF state (agents, tasks, mission status) to
@@ -33,9 +33,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from asf import config
+from soy import config
 
-logger = logging.getLogger("asf.services.mission_control_sync")
+logger = logging.getLogger("soy.services.mission_control_sync")
 
 
 def _enum(value: Any) -> Optional[str]:

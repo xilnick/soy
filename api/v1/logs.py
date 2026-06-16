@@ -1,5 +1,5 @@
 """
-asf.api.v1.logs
+soy.api.v1.logs
 
 Unified, chronological mission log.
 
@@ -23,14 +23,14 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from asf.db import get_db
-from asf.errors import raise_http_error
-from asf.models.enums import ExecutionStatus
-from asf.models.execution import Execution
-from asf.models.mission import Mission
-from asf.schemas import LogEntry, MissionLogResponse
+from soy.db import get_db
+from soy.errors import raise_http_error
+from soy.models.enums import ExecutionStatus
+from soy.models.execution import Execution
+from soy.models.mission import Mission
+from soy.schemas import LogEntry, MissionLogResponse
 
-logger = logging.getLogger("asf.api.v1.logs")
+logger = logging.getLogger("soy.api.v1.logs")
 
 router = APIRouter(prefix="/missions", tags=["logs"])
 

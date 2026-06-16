@@ -1,7 +1,7 @@
 """
 SQLite-backed Alembic migration-chain tests.
 
-Unlike :mod:`asf.tests.test_migrations` (which is PostgreSQL-gated and
+Unlike :mod:`soy.tests.test_migrations` (which is PostgreSQL-gated and
 validates native ENUM / JSONB behaviour), these run on a throwaway
 SQLite file so they execute in CI without a database. They guard two
 specific regressions:
@@ -27,16 +27,16 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-import asf.models  # noqa: F401 — register tables on Base.metadata
-from asf.models.base import Base
-from asf.models.enums import MissionStatus
-from asf.models.mission import Mission
+import soy.models  # noqa: F401 — register tables on Base.metadata
+from soy.models.base import Base
+from soy.models.enums import MissionStatus
+from soy.models.mission import Mission
 
 
 def _alembic_cfg(url: str):
     from alembic.config import Config
 
-    cfg = Config("asf/alembic.ini")
+    cfg = Config("soy/alembic.ini")
     cfg.set_main_option("sqlalchemy.url", url)
     return cfg
 

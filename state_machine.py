@@ -1,5 +1,5 @@
 """
-asf.state_machine
+soy.state_machine
 =================
 
 Mission lifecycle state machine.
@@ -10,7 +10,7 @@ the API router, the PraisonAI worker, and the WebSocket layer. The
 allowed transitions are listed in :data:`ALLOWED_TRANSITIONS`.
 
 The state machine does not touch the database — the router
-(``asf.api.v1.missions``) loads the row, asks the machine whether a
+(``soy.api.v1.missions``) loads the row, asks the machine whether a
 transition is allowed, and applies the change inside a single
 ``SELECT ... FOR UPDATE`` transaction. This keeps the unit tests
 fast (no DB) and makes the rules easy to reason about.
@@ -21,7 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, FrozenSet, List, Optional
 
-from asf.models.enums import MissionStatus
+from soy.models.enums import MissionStatus
 
 
 # ---------------------------------------------------------------------------

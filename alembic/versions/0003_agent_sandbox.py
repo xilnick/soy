@@ -8,7 +8,7 @@ Adds a ``sandbox`` boolean column to the ``agents`` table. The
 column toggles whether an agent receives the unrestricted tool
 list (``file_read`` + ``file_write`` + ``run_command`` +
 ``web_search``) or the sandboxed tool list (``file_read`` +
-``file_write`` only). See :mod:`asf.services.praisonai_worker` for
+``file_write`` only). See :mod:`soy.services.praisonai_worker` for
 the runtime tool resolution.
 
 Revision 0003 owns the column's entire lifecycle: 0001 deliberately

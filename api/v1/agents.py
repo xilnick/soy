@@ -1,11 +1,11 @@
 """
-asf.api.v1.agents
+soy.api.v1.agents
 =================
 
 Agent CRUD and AgentTeam assembly endpoints.
 
 The router is mounted under ``/api/v1/missions/{mission_id}/agents``
-by :mod:`asf.api.v1.router`. It implements the surface described
+by :mod:`soy.api.v1.router`. It implements the surface described
 in the validation contract for the agent orchestration engine:
 
   * ``POST /api/v1/missions/{id}/agents``                — create
@@ -13,7 +13,7 @@ in the validation contract for the agent orchestration engine:
   * ``GET  /api/v1/missions/{id}/agents/{agent_id}``     — read one
   * ``POST /api/v1/missions/{id}/agents/team``           — assemble
 
-The router uses :class:`asf.services.praisonai_worker.ASFWorker`
+The router uses :class:`soy.services.praisonai_worker.ASFWorker`
 to construct PraisonAI agent instances; the worker is also where
 the model resolution, sandbox tool list, and retry policy live.
 The router itself only persists DB rows and serialises
@@ -30,24 +30,24 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from asf.db import get_db
-from asf.errors import raise_http_error
-from asf.models.agent import Agent
-from asf.models.enums import AgentRole, AgentStatus
-from asf.models.mission import Mission
-from asf.schemas import (
+from soy.db import get_db
+from soy.errors import raise_http_error
+from soy.models.agent import Agent
+from soy.models.enums import AgentRole, AgentStatus
+from soy.models.mission import Mission
+from soy.schemas import (
     AgentCreate,
     AgentList,
     AgentRead,
     AgentTeamResponse,
 )
-from asf.services import mission_control_sync as mc_sync
-from asf.services.praisonai_worker import (
+from soy.services import mission_control_sync as mc_sync
+from soy.services.praisonai_worker import (
     TEAM_ROLE_ORDER,
     get_worker,
 )
 
-logger = logging.getLogger("asf.api.v1.agents")
+logger = logging.getLogger("soy.api.v1.agents")
 
 router = APIRouter(prefix="/missions", tags=["agents"])
 
@@ -108,7 +108,7 @@ def create_agent(
     exercised at write time. The PraisonAI instance is *not*
     started here; the worker just returns the constructed
     object (the agent is later submitted to a workflow by
-    :mod:`asf.api.v1.tasks`).
+    :mod:`soy.api.v1.tasks`).
     """
     _get_mission_or_404(db, mission_id)
 

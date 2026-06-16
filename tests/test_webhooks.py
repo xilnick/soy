@@ -22,11 +22,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from asf.db import get_db
-from asf.main import app
-from asf.models.base import Base
-import asf.models  # noqa: F401
-from asf.models.mission import Mission
+from soy.db import get_db
+from soy.main import app
+from soy.models.base import Base
+import soy.models  # noqa: F401
+from soy.models.mission import Mission
 
 
 # ---------------------------------------------------------------------------
@@ -37,8 +37,8 @@ def engine(tmp_path, monkeypatch):
     db_path = tmp_path / "asf_wh.db"
     url = f"sqlite:///{db_path}"
     monkeypatch.setenv("ASF_DATABASE_URL", url)
-    from asf import db as db_mod
-    from asf.services.praisonai_worker import reset_worker
+    from soy import db as db_mod
+    from soy.services.praisonai_worker import reset_worker
 
     reset_worker()
     db_mod.reset_engine()
@@ -74,7 +74,7 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
     # session, but the GitService is constructed via get_session... no:
     # it takes the live db. Still, keep the worker's session factory in
     # sync for safety.
-    import asf.db as _asf_db
+    import soy.db as _asf_db
     monkeypatch.setattr(_asf_db, "get_session_local", lambda: session_factory)
     monkeypatch.setenv("ASF_RUN_MIGRATIONS_ON_STARTUP", "false")
     with TestClient(app) as c:
@@ -153,7 +153,7 @@ def test_verify_signature_handles_nonascii_header(monkeypatch):
     ``X-Hub-Signature-256`` value. ``hmac.compare_digest`` raises
     TypeError on such str inputs; the bytes comparison must not.
     """
-    from asf.api.v1.webhooks import _verify_signature
+    from soy.api.v1.webhooks import _verify_signature
 
     monkeypatch.setenv("ASF_GITHUB_WEBHOOK_SECRET", SECRET)
     assert _verify_signature(b"body", "sha256=t\xe9ken-non-ascii") is False
@@ -265,9 +265,9 @@ def test_webhook_creates_branch_and_spec_when_git_enabled(
 def test_git_service_creates_branch_and_commits_spec(
     session_factory, remote_repo, tmp_path, monkeypatch,
 ):
-    from asf.api.v1.missions import create_mission_from_ingestion
-    from asf.schemas import MissionCreate
-    from asf.services.git_service import GitService
+    from soy.api.v1.missions import create_mission_from_ingestion
+    from soy.schemas import MissionCreate
+    from soy.services.git_service import GitService
 
     monkeypatch.setenv("ASF_GIT_WORKDIR", str(tmp_path / "gwork"))
     with session_factory() as db:
