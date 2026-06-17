@@ -549,6 +549,26 @@ class ASFWorker:
             db.commit()
             db.refresh(task)
 
+        # 1b. If coding-agent dispatch is enabled AND the agent is a
+        #     coder AND the mission has a git branch (Git-as-SSOT),
+        #     dispatch via the coding agent CLI instead of PraisonAI.
+        from soy import config as _soy_config
+        if (
+            _soy_config.coding_agent_enabled()
+            and agent_role == AgentRole.coder
+            and mission_has_git_branch(self._sessionmaker, task.mission_id)
+        ):
+            return self._dispatch_coding_agent(
+                task_id=task_id,
+                mission_id=task.mission_id,
+                agent_name=agent_model,  # model column doubles as agent manifest name
+                prompt=task_description,
+                execution_id=execution_id,
+                attempt_number=attempt_number,
+                started_at=started_at,
+                timeout_seconds=timeout_seconds,
+            )
+
         # 2. Build the PraisonAI agent and task.
         try:
             pa_agent = self._build_praisonai_agent(
@@ -1127,6 +1147,150 @@ class ASFWorker:
         the event so it is visible in PM2 logs.
         """
         logger.info("ASF event %s: %s", event, payload)
+
+    # ------------------------------------------------------------------
+    # Coding-agent dispatch path
+    # ------------------------------------------------------------------
+    def _dispatch_coding_agent(
+        self,
+        *,
+        task_id: uuid.UUID,
+        mission_id: uuid.UUID,
+        agent_name: str,
+        prompt: str,
+        execution_id: uuid.UUID,
+        attempt_number: int,
+        started_at: datetime,
+        timeout_seconds: int,
+    ) -> TaskExecutionResult:
+        """Run the task via a coding-agent CLI (opencode/hermes/codex/droid).
+
+        1. Creates a git worktree for the mission's branch.
+        2. Dispatches the coding agent with the task prompt.
+        3. Commits + pushes changes, opens a PR.
+        4. Records the execution result.
+        """
+        from soy.services.coding_agent_dispatcher import (
+            AgentNotFoundError,
+            dispatch as agent_dispatch,
+        )
+        from soy.services.git_service import GitService
+
+        git = GitService()
+
+        with self._sessionmaker() as db:
+            mission = db.get(Mission, mission_id)
+            if mission is None:
+                return TaskExecutionResult(
+                    task_id=task_id, status=TaskStatus.failed,
+                    error="mission_not_found",
+                )
+            md = mission.mission_metadata or {}
+            git_info = md.get("git", {})
+            branch = mission.branch or git_info.get("branch")
+
+        if not branch:
+            return TaskExecutionResult(
+                task_id=task_id, status=TaskStatus.failed,
+                error="no_git_branch_on_mission",
+            )
+
+        # 1. Create worktree
+        try:
+            worktree_path = git.create_worktree(mission_id, branch)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("git worktree failed for mission %s", mission_id)
+            return self._record_failed_execution(
+                task_id=task_id, execution_id=execution_id,
+                attempt_number=attempt_number, started_at=started_at,
+                error=f"worktree_failed: {exc}",
+            )
+
+        # 2. Dispatch coding agent
+        try:
+            result = agent_dispatch(
+                agent_name, prompt,
+                cwd=worktree_path,
+                timeout=timeout_seconds,
+            )
+        except AgentNotFoundError as exc:
+            logger.warning("Agent %s not found: %s", agent_name, exc)
+            return self._record_failed_execution(
+                task_id=task_id, execution_id=execution_id,
+                attempt_number=attempt_number, started_at=started_at,
+                error=f"agent_not_found: {exc}",
+            )
+
+        finished_at = datetime.now(timezone.utc)
+
+        if result.error or result.exit_code != 0:
+            return self._record_failed_execution(
+                task_id=task_id, execution_id=execution_id,
+                attempt_number=attempt_number, started_at=started_at,
+                error=result.error or f"agent_exit_{result.exit_code}",
+            )
+
+        # 3. Commit + push + open PR
+        pr_url = None
+        try:
+            sha = git.commit_and_push(
+                worktree_path,
+                f"feat(mission {mission_id}): task {task_id} via {agent_name}",
+                branch=branch,
+            )
+            with self._sessionmaker() as db:
+                mission = db.get(Mission, mission_id)
+                if mission is not None:
+                    md = dict(mission.mission_metadata or {})
+                    md.setdefault("git", {})["commit_sha"] = sha
+                    md["git"]["agent_exit_code"] = result.exit_code
+                    mission.mission_metadata = md
+                    db.commit()
+
+            pr_num, pr_url = git.open_pr(
+                branch,
+                f"Mission {mission_id}: {agent_name} output",
+                f"Auto-generated PR from mission {mission_id}\n\n"
+                f"Agent: {agent_name}\nModel: {result.model}\n"
+                f"Duration: {result.duration_seconds}s",
+            )
+            with self._sessionmaker() as db:
+                mission = db.get(Mission, mission_id)
+                if mission is not None:
+                    md = dict(mission.mission_metadata or {})
+                    md.setdefault("git", {})["pr_number"] = pr_num
+                    md["git"]["pr_url"] = pr_url
+                    mission.mission_metadata = md
+                    db.commit()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("git commit/push/PR failed for mission %s", mission_id)
+            # Non-fatal: the work was done, just couldn't push
+
+        # 4. Record execution
+        output = {
+            **result.to_execution_output(),
+            "pr_url": pr_url,
+            "worktree": worktree_path,
+        }
+        return self._record_successful_execution(
+            task_id=task_id, execution_id=execution_id,
+            attempt_number=attempt_number, started_at=started_at,
+            finished_at=finished_at, output=output,
+        )
+
+
+def mission_has_git_branch(session_factory, mission_id: uuid.UUID) -> bool:
+    """Return True if the mission has a git branch set (Git-as-SSOT active)."""
+    try:
+        with session_factory() as db:
+            mission = db.get(Mission, mission_id)
+            if mission is None:
+                return False
+            md = mission.mission_metadata or {}
+            git_info = md.get("git", {})
+            return bool(mission.branch or git_info.get("branch"))
+    except Exception:  # noqa: BLE001
+        return False
 
 
 # ---------------------------------------------------------------------------

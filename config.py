@@ -123,3 +123,24 @@ def git_push_enabled() -> bool:
 def git_spec_path() -> str:
     """Repo-relative path of the spec file written on the branch."""
     return os.getenv("ASF_GIT_SPEC_PATH", "spec.md")
+
+
+# ---------------------------------------------------------------------------
+# Coding agent dispatch
+# ---------------------------------------------------------------------------
+def coding_agent_enabled() -> bool:
+    """When True, the mission execution step can invoke coding agent CLIs."""
+    return _bool("ASF_CODING_AGENT_ENABLED", True)
+
+
+def agent_timeout_seconds() -> int:
+    """Wall-clock timeout for a single coding-agent subprocess call."""
+    return int(os.getenv("ASF_AGENT_TIMEOUT_SECONDS", "600"))
+
+
+def agent_manifest_dir() -> str:
+    """Path to the directory containing coding-agent JSON manifests."""
+    return os.getenv(
+        "ASF_AGENT_MANIFEST_DIR",
+        os.path.expanduser("~/repos/soy/config/agents"),
+    )

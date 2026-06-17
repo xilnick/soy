@@ -445,6 +445,37 @@ def _get_rejection_count(mission: Mission) -> int:
     return int(md.get("rejection_count", 0))
 
 
+def _try_merge_pr(mission: Mission) -> None:
+    """Best-effort: merge the PR associated with a mission via ``gh pr merge``.
+
+    Reads ``mission_metadata.git.pr_number``. If present and the git
+    feature is enabled, merges via GitService. Never raises — all
+    errors are logged and swallowed so the transition completes
+    regardless of merge success.
+    """
+    md = mission.mission_metadata or {}
+    git_info = md.get("git", {})
+    pr_number = git_info.get("pr_number")
+    if not pr_number:
+        return
+
+    from soy import config as _cfg
+    from soy.services.git_service import GitService
+
+    try:
+        git = GitService()
+        merge_sha = git.merge_pr(
+            int(pr_number),
+            cwd=str(git.workdir) if git.workdir else None,
+        )
+        git_info["merge_sha"] = merge_sha
+        md["git"] = git_info
+        mission.mission_metadata = md
+        logger.info("PR %s merged for mission %s", pr_number, mission.id)
+    except Exception as exc:  # noqa: BLE001 — best-effort
+        logger.warning("Failed to merge PR %s: %s", pr_number, exc)
+
+
 @router.post(
     "/{mission_id}/transition",
     response_model=TransitionResponse,
@@ -562,6 +593,11 @@ def transition_mission(
                 "Cannot transition to merged: at least one merge "
                 "approval with decision='approve' is required.",
             )
+
+    # Side-effect: if transitioning to merged and the mission has a
+    # PR (Git-as-SSOT), merge it via gh pr merge.
+    if target == MissionStatus.merged:
+        _try_merge_pr(mission)
 
     try:
         db.commit()

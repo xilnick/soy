@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import logging
 import os
+import subprocess
+import tempfile
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -28,6 +30,9 @@ from sqlalchemy.orm import Session
 from soy.models.mission import Mission
 
 logger = logging.getLogger("soy.services.git_service")
+
+# Base directory for per-mission git worktrees.
+_WORKTREE_BASE = "/tmp/asf-worktrees"
 
 
 def render_spec_template(mission: Mission) -> str:
@@ -165,3 +170,142 @@ class GitService:
             "commit_sha": sha,
             "pushed": pushed,
         }
+
+    # -----------------------------------------------------------------
+    # Worktree management
+    # -----------------------------------------------------------------
+
+    def create_worktree(self, mission_id, branch: str, *, base: str = "HEAD") -> str:
+        """Create a git worktree at ``/tmp/asf-worktrees/{mission_id}``.
+
+        The worktree is a fresh checkout of *branch* isolated from the
+        main clone so the coding agent can make changes without
+        interfering with the origin repo. Returns the absolute path to
+        the worktree. Gated by ``self.push_enabled`` (no worktree needed
+        if we never push).
+
+        Raises ``RuntimeError`` if the git worktree command fails.
+        """
+        worktree_path = os.path.join(_WORKTREE_BASE, str(mission_id))
+        os.makedirs(_WORKTREE_BASE, exist_ok=True)
+
+        repo_dir = self._repo_dir(mission_id)
+        if not os.path.isdir(os.path.join(repo_dir, ".git")):
+            raise RuntimeError(
+                f"Repo not cloned for mission {mission_id}; "
+                f"run create_branch_and_spec() first"
+            )
+
+        # Remove stale worktree if it exists
+        if os.path.isdir(worktree_path):
+            subprocess.run(
+                ["git", "worktree", "remove", "--force", worktree_path],
+                cwd=repo_dir, capture_output=True, text=True,
+            )
+
+        result = subprocess.run(
+            ["git", "worktree", "add", worktree_path, branch],
+            cwd=repo_dir, capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"git worktree add failed: {result.stderr.strip()}"
+            )
+
+        logger.info(
+            "git worktree: mission %s branch=%s path=%s",
+            mission_id, branch, worktree_path,
+        )
+        return worktree_path
+
+    # -----------------------------------------------------------------
+    # Commit + push
+    # -----------------------------------------------------------------
+
+    def commit_and_push(self, cwd: str, message: str, *, branch: str | None = None) -> str:
+        """Stage all changes in *cwd*, commit with configured author, push.
+
+        Returns the commit SHA. Gated by ``self.push_enabled``; if
+        disabled, only commits locally (no push).
+
+        Raises ``RuntimeError`` if the commit fails.
+        """
+        from git import Actor, Repo
+
+        repo = Repo(cwd)
+        with repo.config_writer() as cw:
+            cw.set_value("user", "name", self.author_name)
+            cw.set_value("user", "email", self.author_email)
+
+        repo.git.add(A=True)
+        actor = Actor(self.author_name, self.author_email)
+        commit = repo.index.commit(message, author=actor, committer=actor)
+        sha = commit.hexsha
+
+        if self.push_enabled:
+            target = branch or repo.active_branch.name
+            try:
+                repo.remotes.origin.push(target)
+            except Exception:  # noqa: BLE001
+                logger.exception("git push failed for worktree %s", cwd)
+
+        logger.info("git commit: cwd=%s sha=%s", cwd, sha[:8])
+        return sha
+
+    # -----------------------------------------------------------------
+    # Pull request management
+    # -----------------------------------------------------------------
+
+    def open_pr(self, branch: str, title: str, body: str, *, cwd: str | None = None) -> tuple:
+        """Create a pull request via ``gh pr create``.
+
+        Returns ``(pr_number, pr_url)``. Raises ``RuntimeError`` if
+        ``gh`` is not installed or the command fails.
+        """
+        result = subprocess.run(
+            [
+                "gh", "pr", "create",
+                "--base", "main",
+                "--head", branch,
+                "--title", title,
+                "--body", body,
+                "--json", "number,url",
+            ],
+            cwd=cwd or self._repo_dir(branch),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"gh pr create failed: {result.stderr.strip()}")
+
+        import json
+        data = json.loads(result.stdout)
+        pr_number = data["number"]
+        pr_url = data["url"]
+        logger.info("PR opened: %s (branch=%s)", pr_url, branch)
+        return pr_number, pr_url
+
+    def merge_pr(self, pr_number: int, *, cwd: str | None = None, delete_branch: bool = True) -> str:
+        """Merge a PR via ``gh pr merge --squash``.
+
+        Returns the merge SHA. Raises ``RuntimeError`` if the merge
+        fails.
+        """
+        cmd = ["gh", "pr", "merge", str(pr_number), "--squash"]
+        if delete_branch:
+            cmd.append("--delete-branch")
+
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"gh pr merge failed: {result.stderr.strip()}")
+
+        merge_sha = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
+        logger.info("PR merged: #%s sha=%s", pr_number, merge_sha[:8] if merge_sha else "?")
+        return merge_sha
