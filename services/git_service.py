@@ -6,12 +6,12 @@ Git-as-SSOT: create the feature branch and write the spec for a mission.
 
 When a mission is ingested (from the GitHub webhook), this service
 clones-or-opens the target repo into a per-mission working directory,
-creates the ``feature/asf-{issue}`` branch, writes ``spec.md`` to it,
-and commits with the ASF identity. The commit SHA + branch + spec path
+creates the ``feature/soy-{issue}`` branch, writes ``spec.md`` to it,
+and commits with the SOY identity. The commit SHA + branch + spec path
 are written back onto the mission row (Git is the source of truth; the
 DB tracks pointers).
 
-Push to ``origin`` is gated behind ``ASF_GIT_PUSH_ENABLED`` (default
+Push to ``origin`` is gated behind ``SOY_GIT_PUSH_ENABLED`` (default
 off) so local/dev runs never need write credentials. ``GitPython`` is
 imported lazily so importing this module does not require ``git`` on a
 host that never enables the feature.
@@ -32,7 +32,7 @@ from soy.models.mission import Mission
 logger = logging.getLogger("soy.services.git_service")
 
 # Base directory for per-mission git worktrees.
-_WORKTREE_BASE = "/tmp/asf-worktrees"
+_WORKTREE_BASE = "/tmp/soy-worktrees"
 
 
 def render_spec_template(mission: Mission) -> str:
@@ -45,7 +45,7 @@ def render_spec_template(mission: Mission) -> str:
     """
     return (
         f"# RFC — {mission.title}\n\n"
-        "> **Auto-generated placeholder (ASF M2).** This stub records the\n"
+        "> **Auto-generated placeholder (SOY).** This stub records the\n"
         "> ingested issue context so the feature branch and `spec.md` exist\n"
         "> as Git-as-SSOT anchors. The real RFC is produced by the planning\n"
         "> agent in a later milestone — do not treat this as agent output.\n\n"
@@ -104,7 +104,7 @@ class GitService:
 
         branch_name = (
             mission.branch_prefix
-            or f"feature/asf-{mission.external_id or mission.id}"
+            or f"feature/soy-{mission.external_id or mission.id}"
         )
         os.makedirs(self.workdir, exist_ok=True)
         path = self._repo_dir(mission_id)
@@ -131,7 +131,7 @@ class GitService:
         repo.index.add([self.spec_path])
         actor = Actor(self.author_name, self.author_email)
         commit = repo.index.commit(
-            f"docs(asf): RFC spec for mission "
+            f"docs(soy): RFC spec for mission "
             f"{mission.external_id or mission.id}",
             author=actor,
             committer=actor,
@@ -176,7 +176,7 @@ class GitService:
     # -----------------------------------------------------------------
 
     def create_worktree(self, mission_id, branch: str, *, base: str = "HEAD") -> str:
-        """Create a git worktree at ``/tmp/asf-worktrees/{mission_id}``.
+        """Create a git worktree at ``/tmp/soy-worktrees/{mission_id}``.
 
         The worktree is a fresh checkout of *branch* isolated from the
         main clone so the coding agent can make changes without

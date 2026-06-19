@@ -6,7 +6,7 @@ Reads coding-agent manifests from ``config/agents/*.json`` and invokes the
 matching CLI binary as a subprocess. Returns a structured result that
 the PraisonAI worker stores on the ``Execution`` row.
 
-Gated by ``ASF_CODING_AGENT_ENABLED`` (default True). Never raises from
+Gated by ``SOY_CODING_AGENT_ENABLED`` (default True). Never raises from
 ``dispatch()`` — failures are captured as ``DispatchResult.error``.
 """
 

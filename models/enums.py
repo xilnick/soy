@@ -2,7 +2,7 @@
 soy.models.enums
 ================
 
-Python enum types for ASF status/role columns.
+Python enum types for SOY status/role columns.
 
 These enums are the single source of truth used by both the SQLAlchemy
 ORM models (declared with ``Enum(MyEnum, name=...)``) and the Pydantic

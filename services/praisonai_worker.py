@@ -2,7 +2,7 @@
 soy.services.praisonai_worker
 =============================
 
-``ASFWorker`` — the bridge between the ASF domain layer (DB rows)
+``SoyWorker`` — the bridge between the SOY domain layer (DB rows)
 and the PraisonAI runtime (``praisonaiagents.Agent`` /
 ``praisonaiagents.Agents`` / ``praisonaiagents.Task``).
 
@@ -52,7 +52,7 @@ The worker is intentionally side-effect-only: it mutates the
 database (inserts ``executions`` rows, updates ``tasks`` and
 ``missions``) and broadcasts WebSocket events, but does not own
 HTTP routing. The router in :mod:`soy.api.v1.tasks` calls
-:meth:`ASFWorker.execute_task` and serialises the result.
+:meth:`SoyWorker.execute_task` and serialises the result.
 """
 
 from __future__ import annotations
@@ -162,15 +162,15 @@ def tools_for_sandbox(sandbox: bool) -> List[str]:
 # ---------------------------------------------------------------------------
 # Worker
 # ---------------------------------------------------------------------------
-class ASFWorker:
-    """Bridge between the ASF database and the PraisonAI runtime.
+class SoyWorker:
+    """Bridge between the SOY database and the PraisonAI runtime.
 
     The worker is stateless across requests: every call to
     :meth:`execute_task` opens its own DB session and returns a
     :class:`TaskExecutionResult`. Tests can instantiate the class
     freely without worrying about cleanup.
 
-    A single ``ASFWorker`` instance is shared by the FastAPI
+    A single ``SoyWorker`` instance is shared by the FastAPI
     dependency-injection graph so the executor pool is reused
     across requests.
     """
@@ -208,10 +208,10 @@ class ASFWorker:
         # every thread with outer calls that each block waiting for an
         # inner workflow future that can never be scheduled.
         self._executor = executor or ThreadPoolExecutor(
-            max_workers=4, thread_name_prefix="asf-fanout",
+            max_workers=4, thread_name_prefix="soy-fanout",
         )
         self._workflow_executor = ThreadPoolExecutor(
-            max_workers=8, thread_name_prefix="asf-workflow",
+            max_workers=8, thread_name_prefix="soy-workflow",
         )
         self._event_publisher = event_publisher or self._default_publisher
 
@@ -687,13 +687,13 @@ class ASFWorker:
         from praisonaiagents import Agent
 
         # Resolve the model. When the agent row carries no explicit
-        # model we use ``ASF_MODEL`` (written by the deploy
+        # model we use ``SOY_MODEL`` (written by the deploy
         # blueprint), falling back to a *local* Ollama model that
         # needs no API key — never a ``:cloud`` default, which would
         # silently require (and, in older builds, persist) a cloud
         # credential for a model-less agent. Production always sets
-        # ASF_MODEL, so this literal is a safe last-resort only.
-        model_str = model or os.environ.get("ASF_MODEL") or "ollama/llama3.2"
+        # SOY_MODEL, so this literal is a safe last-resort only.
+        model_str = model or os.environ.get("SOY_MODEL") or "ollama/llama3.2"
         resolved = resolve_model(model_str)
         llm_id = resolved["llm"]
         base_url = resolved["base_url"]
@@ -712,11 +712,11 @@ class ASFWorker:
         tools = tools_for_sandbox(sandbox)
 
         return Agent(
-            name=f"asf-{role.value}-{str(agent_id)[:8]}",
+            name=f"soy-{role.value}-{str(agent_id)[:8]}",
             role=role.value,
             goal=f"Execute tasks assigned to the {role.value} agent.",
             backstory=(
-                f"ASF {role.value} agent (id={agent_id}). "
+                f"SOY {role.value} agent (id={agent_id}). "
                 + (system_prompt or "")
             ),
             instructions=system_prompt or f"You are the {role.value} agent.",
@@ -845,7 +845,7 @@ class ASFWorker:
             # Expose the token so a (future) cancellation-aware tool
             # layer can poll it; also short-circuit if already set.
             try:
-                setattr(workflow, "_asf_cancel_event", cancel_event)
+                setattr(workflow, "_soy_cancel_event", cancel_event)
             except Exception:  # noqa: BLE001 — workflow may reject attrs
                 pass
             if cancel_event.is_set():
@@ -1142,11 +1142,11 @@ class ASFWorker:
     def _default_publisher(event: str, payload: Dict[str, Any]) -> None:
         """Best-effort event publisher used when none is injected.
 
-        The ASF worker does not own the WebSocket layer; the
+        The SOY worker does not own the WebSocket layer; the
         router wires the actual publisher. Until then we log
         the event so it is visible in PM2 logs.
         """
-        logger.info("ASF event %s: %s", event, payload)
+        logger.info("SOY event %s: %s", event, payload)
 
     # ------------------------------------------------------------------
     # Coding-agent dispatch path
@@ -1299,21 +1299,21 @@ def mission_has_git_branch(session_factory, mission_id: uuid.UUID) -> bool:
 # A single worker instance is shared across the FastAPI
 # dependency-injection graph. The executor pool is reused across
 # requests so timeouts/cancels do not constantly spawn threads.
-_worker_singleton: Optional[ASFWorker] = None
+_worker_singleton: Optional[SoyWorker] = None
 
 
-def get_worker() -> ASFWorker:
-    """Return the singleton :class:`ASFWorker` instance."""
+def get_worker() -> SoyWorker:
+    """Return the singleton :class:`SoyWorker` instance."""
     global _worker_singleton
     if _worker_singleton is None:
-        _worker_singleton = ASFWorker()
+        _worker_singleton = SoyWorker()
     return _worker_singleton
 
 
 def reset_worker() -> None:
     """Drop the cached singleton so the next :func:`get_worker` rebuilds it.
 
-    Tests that change ``ASF_DATABASE_URL`` between cases call
+    Tests that change ``SOY_DATABASE_URL`` between cases call
     this so the worker rebuilds its sessionmaker against the
     new URL. The method is a no-op when no worker has been
     constructed yet.
@@ -1322,7 +1322,7 @@ def reset_worker() -> None:
     work) before the singleton is dropped. Otherwise the pool's
     threads outlive the test that spawned them and — because a
     worker resolves ``soy.db.get_session_local()`` — can rebuild the
-    cached engine against a *stale* ``ASF_DATABASE_URL`` after the
+    cached engine against a *stale* ``SOY_DATABASE_URL`` after the
     next test has already reset it, silently corrupting that test's
     database binding. Production never calls this function (the pool
     is long-lived by design), so the shutdown is a test-isolation
@@ -1352,7 +1352,7 @@ def set_event_publisher(
     """
     global _worker_singleton
     if _worker_singleton is None:
-        _worker_singleton = ASFWorker(event_publisher=publisher)
+        _worker_singleton = SoyWorker(event_publisher=publisher)
     else:
         _worker_singleton._event_publisher = publisher  # type: ignore[attr-defined]
 
@@ -1360,7 +1360,7 @@ def set_event_publisher(
 # Re-export for convenience so tests can import everything from
 # the worker module.
 __all__ = [
-    "ASFWorker",
+    "SoyWorker",
     "DEFAULT_TASK_TIMEOUT_SECONDS",
     "MAX_ATTEMPTS",
     "RETRY_BACKOFF_SECONDS",

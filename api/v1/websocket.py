@@ -6,7 +6,7 @@ FastAPI WebSocket endpoint for real-time mission events.
 
 The endpoint is mounted at ``/ws/missions/{mission_id}/events``.
 Clients connect with a normal WebSocket handshake; the server
-pushes JSON events as the ASF worker publishes them.
+pushes JSON events as the SOY worker publishes them.
 
 The actual broadcast logic lives in :mod:`soy.ws.events`. This
 module is the FastAPI glue: it registers the client, drains the
@@ -179,13 +179,13 @@ async def _drain_inbound(websocket: WebSocket) -> None:
 def _wildcard_authorized(websocket: WebSocket) -> bool:
     """Return True when a ``*`` (global firehose) subscription is allowed.
 
-    Requires the ``ASF_WS_ADMIN_TOKEN`` env var to be configured AND a
+    Requires the ``SOY_WS_ADMIN_TOKEN`` env var to be configured AND a
     matching ``token`` query parameter on the handshake. Default-deny:
     if no admin token is configured the firehose is disabled, so an
     unauthenticated caller can never subscribe to every mission's
     events. The comparison is constant-time.
     """
-    admin_token = os.environ.get("ASF_WS_ADMIN_TOKEN", "")
+    admin_token = os.environ.get("SOY_WS_ADMIN_TOKEN", "")
     if not admin_token:
         return False
     provided = websocket.query_params.get("token", "")

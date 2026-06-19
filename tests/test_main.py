@@ -1,8 +1,8 @@
 """
-Tests for the ASF FastAPI app (``soy.main``).
+Tests for the SOY FastAPI app (``soy.main``).
 
 The tests are PG-agnostic when run without
-``ASF_TEST_DATABASE_URL`` (they only check that the routes are
+``SOY_TEST_DATABASE_URL`` (they only check that the routes are
 registered), and exercise the lifespan migration hook when a
 PostgreSQL test database is configured.
 """
@@ -37,10 +37,10 @@ def test_app_serves_health():
     from fastapi.testclient import TestClient
     from soy.main import app
 
-    # ``ASF_RUN_MIGRATIONS_ON_STARTUP=false`` so we don't need a
+    # ``SOY_RUN_MIGRATIONS_ON_STARTUP=false`` so we don't need a
     # database to serve /health. The lifespan hook logs and continues
     # even if migrations fail.
-    os.environ["ASF_RUN_MIGRATIONS_ON_STARTUP"] = "false"
+    os.environ["SOY_RUN_MIGRATIONS_ON_STARTUP"] = "false"
     with TestClient(app) as client:
         r = client.get("/health")
     assert r.status_code == 200
@@ -52,16 +52,16 @@ def test_app_serves_health():
 def test_lifespan_runs_migrations():
     """When a test database is configured, the lifespan hook must
     run ``alembic upgrade head`` and successfully serve /health."""
-    test_db_url = os.getenv("ASF_TEST_DATABASE_URL", "").strip()
+    test_db_url = os.getenv("SOY_TEST_DATABASE_URL", "").strip()
     if not test_db_url:
-        pytest.skip("ASF_TEST_DATABASE_URL is not set")
+        pytest.skip("SOY_TEST_DATABASE_URL is not set")
     from fastapi.testclient import TestClient
     from soy.main import app
 
     # Re-use the existing test URL.
-    os.environ["ASF_DATABASE_URL"] = test_db_url
+    os.environ["SOY_DATABASE_URL"] = test_db_url
     # Remove the disable flag so the hook runs.
-    os.environ.pop("ASF_RUN_MIGRATIONS_ON_STARTUP", None)
+    os.environ.pop("SOY_RUN_MIGRATIONS_ON_STARTUP", None)
     with TestClient(app) as client:
         r = client.get("/health")
     assert r.status_code == 200

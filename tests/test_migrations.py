@@ -1,5 +1,5 @@
 """
-Tests for the ASF Alembic schema migration.
+Tests for the SOY Alembic schema migration.
 
 These tests verify the contract of the initial migration
 (``0001_initial_schema``) against the assertions in
@@ -20,7 +20,7 @@ schema). Each test maps to one or more validation IDs:
 * ``test_version_table_tracks_state``— VAL-CROSS-013
 
 The tests run against a real PostgreSQL database when
-``ASF_TEST_DATABASE_URL`` is set (recommended — the PG-specific bits
+``SOY_TEST_DATABASE_URL`` is set (recommended — the PG-specific bits
 like native ENUM types and JSONB only materialise on a real backend).
 When the env var is unset, the tests are skipped (so a CI without
 Postgres can still run the rest of the suite).
@@ -37,16 +37,16 @@ import pytest
 
 # Skip the entire module when no PostgreSQL test database is configured.
 # The tests are intentionally PG-only: they validate the native ENUM
-# types, JSONB columns, and CHECK constraints that the ASF schema
+# types, JSONB columns, and CHECK constraints that the SOY schema
 # requires. SQLite-backed models use generic JSON/VARCHAR fallbacks.
-_TEST_DB_URL = os.getenv("ASF_TEST_DATABASE_URL", "").strip()
+_TEST_DB_URL = os.getenv("SOY_TEST_DATABASE_URL", "").strip()
 
 
 pytestmark = pytest.mark.skipif(
     not _TEST_DB_URL,
     reason=(
-        "ASF_TEST_DATABASE_URL is not set; PostgreSQL is required to "
-        "verify the ASF schema (native ENUMs + JSONB)."
+        "SOY_TEST_DATABASE_URL is not set; PostgreSQL is required to "
+        "verify the SOY schema (native ENUMs + JSONB)."
     ),
 )
 
@@ -65,7 +65,7 @@ def migrated_engine(db_url):
     """Yield a SQLAlchemy engine bound to a freshly migrated database.
 
     Creates a one-off database (or uses the existing one if
-    ``ASF_TEST_DATABASE_URL`` already points at it) so that re-running
+    ``SOY_TEST_DATABASE_URL`` already points at it) so that re-running
     the test suite is safe. The database is dropped on teardown.
     """
     from sqlalchemy import create_engine, text
@@ -462,7 +462,7 @@ class TestMigrationRollback:
             }
         assert {"missions", "agents", "tasks"} <= before
 
-        # Downgrade to base — should drop every ASF table.
+        # Downgrade to base — should drop every SOY table.
         cfg = Config(_locate_alembic_ini())
         cfg.set_main_option("sqlalchemy.url", db_url)
         command.downgrade(cfg, "base")
@@ -582,7 +582,7 @@ class TestJsonbColumns:
             mission = models.Mission(
                 title="jsonb test",
                 mission_metadata={
-                    "labels": ["asf-run", "priority-high"],
+                    "labels": ["soy-run", "priority-high"],
                     "config": {"max_retries": 3, "sandbox": True},
                 },
             )
@@ -591,7 +591,7 @@ class TestJsonbColumns:
             mid = mission.id
         with session_scope(migrated_engine) as session:
             m = session.get(models.Mission, mid)
-            assert m.mission_metadata["labels"] == ["asf-run", "priority-high"]
+            assert m.mission_metadata["labels"] == ["soy-run", "priority-high"]
             assert m.mission_metadata["config"]["max_retries"] == 3
 
 

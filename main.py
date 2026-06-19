@@ -2,7 +2,7 @@
 soy.main
 ========
 
-FastAPI entrypoint for the AI Software Factory.
+FastAPI entrypoint for the Soy Orchestration Yield.
 
 The application is intentionally minimal at this milestone — it exposes
 ``/health`` so the deploy blueprint can prove the service is up, and
@@ -41,7 +41,7 @@ logger = logging.getLogger("soy.main")
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Run migrations on startup, log shutdown on exit.
 
-    The ``ASF_RUN_MIGRATIONS_ON_STARTUP`` env var is honoured so unit
+    The ``SOY_RUN_MIGRATIONS_ON_STARTUP`` env var is honoured so unit
     tests that mount a pre-migrated SQLite in-memory database can
     skip the Alembic invocation. The variable is read at the top of
     the function (not module import time) so test fixtures that
@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
 
     run_migrations = os.environ.get(
-        "ASF_RUN_MIGRATIONS_ON_STARTUP", "true"
+        "SOY_RUN_MIGRATIONS_ON_STARTUP", "true"
     ).lower() in ("1", "true", "yes")
     if run_migrations:
         try:
@@ -64,15 +64,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             # We deliberately do not abort startup on migration
             # failure: the operational signal is that ``/health``
             # returns 503 and the PM2 log captures the stack trace.
-            logger.exception("ASF Alembic migration failed on startup")
+            logger.exception("SOY Alembic migration failed on startup")
     else:
         logger.info(
-            "ASF startup migrations skipped "
-            "(ASF_RUN_MIGRATIONS_ON_STARTUP=%s)",
-            os.environ.get("ASF_RUN_MIGRATIONS_ON_STARTUP"),
+            "SOY startup migrations skipped "
+            "(SOY_RUN_MIGRATIONS_ON_STARTUP=%s)",
+            os.environ.get("SOY_RUN_MIGRATIONS_ON_STARTUP"),
         )
     yield
-    logger.info("ASF shutdown")
+    logger.info("SOY shutdown")
     # Remove the stdout log handler we installed so it does not outlive
     # the app (keeps the root logger clean across per-test lifespans).
     from soy.logging_config import reset_logging
@@ -84,7 +84,7 @@ app = FastAPI(
     title="Soy Backend",
     version="0.1.0",
     description=(
-        "AI Software Factory — FastAPI mission orchestration backend. "
+        "Soy Orchestration Yield — FastAPI mission orchestration backend. "
         "See ``soy/models/`` for the schema and ``soy/alembic/`` for "
         "the migrations."
     ),
@@ -101,7 +101,7 @@ app.include_router(api_v1_router)
 # WebSocket router — real-time mission events.
 app.include_router(ws_router)
 
-# Wire the ASF worker's event publisher to the in-memory WebSocket
+# Wire the SOY worker's event publisher to the in-memory WebSocket
 # bus so successful executions, retries, and escalations are
 # broadcast to every connected client in real time. The publisher
 # uses ``asyncio.run_coroutine_threadsafe`` internally so the
@@ -144,6 +144,6 @@ if __name__ == "__main__":  # pragma: no cover
     # minimal skeleton.
     import uvicorn  # local import: uvicorn is required at runtime
 
-    host = os.environ.get("ASF_HOST", "127.0.0.1")
-    port = int(os.environ.get("ASF_SERVER_PORT", "8923"))
+    host = os.environ.get("SOY_HOST", "127.0.0.1")
+    port = int(os.environ.get("SOY_SERVER_PORT", "8923"))
     uvicorn.run("soy.main:app", host=host, port=port)

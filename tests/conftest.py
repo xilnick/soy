@@ -1,4 +1,4 @@
-"""Pytest configuration shared by the ASF test suite.
+"""Pytest configuration shared by the SOY test suite.
 
 The tests need to import the ``soy`` package regardless of where
 pytest is invoked from. We add the project root to ``sys.path`` so
@@ -29,7 +29,7 @@ def _reset_db_engine(request):
     """Reset the cached engine + worker between tests.
 
     Several test modules build their own SQLAlchemy engines
-    against an in-memory SQLite database. The ASF worker caches
+    against an in-memory SQLite database. The SOY worker caches
     a separate engine on first use, so the test would see two
     different engines unless we reset the cache before and
     after each test. The fixture is autouse so every test
@@ -50,9 +50,9 @@ def _reset_db_engine(request):
         # Also drop the cached sessionmaker explicitly so the
         # next ``get_session_local()`` rebuilds the engine
         # from the current env var.
-        _asf_db = db_mod
-        _asf_db._SessionLocal = None
-        _asf_db._engine = None
+        _soy_db = db_mod
+        _soy_db._SessionLocal = None
+        _soy_db._engine = None
     except Exception:  # noqa: BLE001 — best-effort cleanup
         pass
     yield
@@ -62,8 +62,8 @@ def _reset_db_engine(request):
 
         reset_worker()
         db_mod.reset_engine()
-        _asf_db = db_mod
-        _asf_db._SessionLocal = None
-        _asf_db._engine = None
+        _soy_db = db_mod
+        _soy_db._SessionLocal = None
+        _soy_db._engine = None
     except Exception:  # noqa: BLE001 — best-effort cleanup
         pass

@@ -4,7 +4,7 @@ soy.models.mission
 
 ``Mission`` ORM model.
 
-A ``Mission`` is the top-level unit of work in the AI Software Factory.
+A ``Mission`` is the top-level unit of work in the Soy Orchestration Yield.
 It corresponds to a single software engineering task — typically
 ingested from a GitHub issue — and orchestrates a DAG of agents and
 tasks from creation to merge.
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 
 class Mission(Base, TimestampMixin):
-    """Top-level ASF orchestration record.
+    """Top-level SOY orchestration record.
 
     Columns:
 
@@ -50,7 +50,7 @@ class Mission(Base, TimestampMixin):
                             missions are supported.
     * ``repo_url``        — Source repository the mission targets.
     * ``branch``          — Feature branch the agent team works on
-                            (``feature/asf-<issue_id>``).
+                            (``feature/soy-<issue_id>``).
     * ``title``           — Human-readable summary.
     * ``description``     — Full problem statement.
     * ``status``          — Lifecycle state (see :class:`MissionStatus`).

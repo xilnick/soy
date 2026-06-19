@@ -10,7 +10,7 @@ Maps to validation contract assertions:
 
 The tests use an in-memory SQLite engine so they are PG-agnostic.
 The ``client`` fixture is the same one used in
-:mod:`soy.tests.test_missions`; the ASF worker is monkey-patched
+:mod:`soy.tests.test_missions`; the SOY worker is monkey-patched
 so PraisonAI does not actually call an LLM (the unit tests only
 verify the construction path, not the execution path).
 """
@@ -54,9 +54,9 @@ def engine(tmp_path, monkeypatch):
     ``StaticPool`` keeps a single connection in use.
     """
     import os
-    db_path = tmp_path / "asf_test.db"
+    db_path = tmp_path / "soy_test.db"
     url = f"sqlite:///{db_path}"
-    monkeypatch.setenv("ASF_DATABASE_URL", url)
+    monkeypatch.setenv("SOY_DATABASE_URL", url)
     # Reset the cached engine so the next ``get_session_local``
     # call rebuilds against the new URL.
     from soy import db as db_mod
@@ -94,8 +94,8 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
             db.close()
 
     app.dependency_overrides[get_db] = _get_db_override
-    monkeypatch.setenv("ASF_RUN_MIGRATIONS_ON_STARTUP", "false")
-    # Patch the ASF worker's PraisonAI construction so the test
+    monkeypatch.setenv("SOY_RUN_MIGRATIONS_ON_STARTUP", "false")
+    # Patch the SOY worker's PraisonAI construction so the test
     # exercises the worker without actually instantiating a
     # real Agent (which would try to resolve a model and
     # connect to an LLM provider that is not reachable from CI).
@@ -129,7 +129,7 @@ def _create_mission(client, **overrides) -> dict:
         "title": "M",
         "description": "d",
         "repo_url": "https://github.com/example/repo",
-        "branch_prefix": "feature/asf-1",
+        "branch_prefix": "feature/soy-1",
     }
     payload.update(overrides)
     r = client.post("/api/v1/missions", json=payload)
@@ -200,8 +200,8 @@ def test_create_agent_each_role_is_accepted(client):
 # VAL-API-019 — list filters by mission
 # ---------------------------------------------------------------------------
 def test_list_agents_filters_by_mission(client):
-    m1 = _create_mission(client, branch_prefix="feature/asf-100")
-    m2 = _create_mission(client, branch_prefix="feature/asf-101")
+    m1 = _create_mission(client, branch_prefix="feature/soy-100")
+    m2 = _create_mission(client, branch_prefix="feature/soy-101")
     # Add one agent to each mission.
     client.post(f"/api/v1/missions/{m1['id']}/agents",
                 json={"name": "a1", "role": "coder"})
@@ -314,7 +314,7 @@ def test_create_agent_syncs_to_mission_control_when_enabled(client, monkeypatch)
     """
     from soy.services import mission_control_sync as mc
 
-    monkeypatch.setenv("ASF_MC_SYNC_ENABLED", "true")
+    monkeypatch.setenv("SOY_MC_SYNC_ENABLED", "true")
     calls = []
     monkeypatch.setattr(
         mc.MissionControlSync, "_post",

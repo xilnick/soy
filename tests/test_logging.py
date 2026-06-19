@@ -64,7 +64,7 @@ def test_json_formatter_renders_exception():
     assert "exc" in d and "ValueError: boom" in d["exc"]
 
 
-def _asf_handlers():
+def _soy_handlers():
     return [
         h for h in logging.getLogger().handlers
         if getattr(h, _HANDLER_MARKER, False)
@@ -72,36 +72,36 @@ def _asf_handlers():
 
 
 def test_configure_logging_installs_single_json_handler(monkeypatch):
-    monkeypatch.setenv("ASF_LOG_FORMAT", "json")
+    monkeypatch.setenv("SOY_LOG_FORMAT", "json")
     try:
         configure_logging()
         configure_logging()  # idempotent — must not stack handlers
-        handlers = _asf_handlers()
+        handlers = _soy_handlers()
         assert len(handlers) == 1
         assert isinstance(handlers[0].formatter, JsonFormatter)
     finally:
-        for h in _asf_handlers():
+        for h in _soy_handlers():
             logging.getLogger().removeHandler(h)
 
 
 def test_configure_logging_text_mode(monkeypatch):
-    monkeypatch.setenv("ASF_LOG_FORMAT", "text")
+    monkeypatch.setenv("SOY_LOG_FORMAT", "text")
     try:
         configure_logging()
-        handlers = _asf_handlers()
+        handlers = _soy_handlers()
         assert len(handlers) == 1
         # Text mode does NOT use the JSON formatter.
         assert not isinstance(handlers[0].formatter, JsonFormatter)
     finally:
-        for h in _asf_handlers():
+        for h in _soy_handlers():
             logging.getLogger().removeHandler(h)
 
 
 def test_reset_logging_removes_handler(monkeypatch):
     from soy.logging_config import reset_logging
 
-    monkeypatch.setenv("ASF_LOG_FORMAT", "json")
+    monkeypatch.setenv("SOY_LOG_FORMAT", "json")
     configure_logging()
-    assert _asf_handlers()  # installed
+    assert _soy_handlers()  # installed
     reset_logging()
-    assert _asf_handlers() == []  # cleanly removed
+    assert _soy_handlers() == []  # cleanly removed

@@ -2,24 +2,24 @@
 soy.services.mission_control_sync
 =================================
 
-Pushes a read-replica of ASF state (agents, tasks, mission status) to
+Pushes a read-replica of SOY state (agents, tasks, mission status) to
 Mission Control's REST API so the dashboard can render it.
 
 Design constraints:
 
-* **Gated off by default** (``ASF_MC_SYNC_ENABLED``). When disabled the
+* **Gated off by default** (``SOY_MC_SYNC_ENABLED``). When disabled the
   module-level ``sync_*`` helpers are a genuine no-op — they never
   construct a client or touch the network — so the core API has no MC
   dependency unless an operator opts in.
 * **Never blocks or breaks the request.** Every POST uses a tight
-  timeout (``ASF_MC_TIMEOUT_SECONDS``, default 2s) and swallows all
+  timeout (``SOY_MC_TIMEOUT_SECONDS``, default 2s) and swallows all
   errors (logged at WARNING). A slow or down MC degrades nothing.
 
 .. note::
 
    The exact Mission Control request schema is **assumed** from the
    integration plan (the MC endpoints ``/api/agents``, ``/api/tasks``,
-   ``/api/status``) and the ASF entity shapes — it is NOT verified
+   ``/api/status``) and the SOY entity shapes — it is NOT verified
    against a running MC instance here. The payload builders below are
    the single place to adjust once MC's contract is confirmed.
 

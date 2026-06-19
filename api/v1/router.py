@@ -15,6 +15,7 @@ from fastapi import APIRouter
 
 from soy.api.v1 import (
     agents,
+    control,
     executions,
     logs,
     missions,
@@ -30,6 +31,7 @@ api_v1_router.include_router(tasks.router)
 api_v1_router.include_router(executions.router)
 api_v1_router.include_router(logs.router)
 api_v1_router.include_router(webhooks.router)
+api_v1_router.include_router(control.router)
 
 # WebSocket endpoint — registered directly on the app (not on
 # the v1 router) because FastAPI's WebSocket support does not

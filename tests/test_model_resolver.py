@@ -1,7 +1,7 @@
 """
 Tests for :mod:`soy.services.model_resolver`.
 
-Covers the routing contract that the ASF worker relies on:
+Covers the routing contract that the SOY worker relies on:
 
 * Ollama-prefixed models route to the local Ollama base URL
   with no API key.

@@ -8,7 +8,7 @@ The same module is used by the FastAPI app (``soy.main``), the Alembic
 ``env.py`` environment, and unit tests. It centralises the SQLAlchemy
 engine, session factory, and a FastAPI-friendly ``get_db`` dependency.
 
-The database URL is read from the ``ASF_DATABASE_URL`` environment
+The database URL is read from the ``SOY_DATABASE_URL`` environment
 variable (which the Piperoni deploy blueprint writes into
 ``~/repos/soy/.env``). When the variable is not set, the module falls back to
 ``sqlite:///./soy_dev.db`` so that local development and the Alembic
@@ -27,20 +27,20 @@ from sqlalchemy.orm import Session, sessionmaker
 
 logger = logging.getLogger("soy.db")
 
-# Default fallback (used only when ASF_DATABASE_URL is not set). On the
+# Default fallback (used only when SOY_DATABASE_URL is not set). On the
 # VPS the deploy blueprint always writes the PostgreSQL URL into
 # ~/repos/soy/.env so this fallback is never reached in production.
 _DEFAULT_SQLITE_URL = "sqlite:///./soy_dev.db"
 
 
 def get_database_url() -> str:
-    """Return the SQLAlchemy database URL, honoring ASF_DATABASE_URL.
+    """Return the SQLAlchemy database URL, honoring SOY_DATABASE_URL.
 
     The value is read at call time (not module import time) so the
     Piperoni deploy can write ``~/repos/soy/.env`` *before* the FastAPI
     process starts and have the new URL picked up by Alembic.
     """
-    url = os.getenv("ASF_DATABASE_URL", "").strip()
+    url = os.getenv("SOY_DATABASE_URL", "").strip()
     if url:
         return url
     return _DEFAULT_SQLITE_URL
@@ -80,7 +80,7 @@ _SessionLocal: sessionmaker[Session] | None = None
 def get_engine() -> Engine:
     """Return the lazily-initialised SQLAlchemy engine.
 
-    Re-reads the ``ASF_DATABASE_URL`` env var on first call. Subsequent
+    Re-reads the ``SOY_DATABASE_URL`` env var on first call. Subsequent
     calls reuse the cached engine. Tests that need a different URL
     should call :func:`reset_engine` after adjusting the env var.
     """
@@ -101,7 +101,7 @@ def get_engine() -> Engine:
 def reset_engine() -> None:
     """Dispose of the current engine and clear the cache.
 
-    Useful for tests that swap ``ASF_DATABASE_URL`` between cases. After
+    Useful for tests that swap ``SOY_DATABASE_URL`` between cases. After
     calling this, the next call to :func:`get_engine` rebuilds the
     engine from the current env.
     """
@@ -156,8 +156,8 @@ def _locate_alembic_ini() -> str:
     The path is computed relative to this file (``soy/db.py``) so the
     helper works regardless of the process's current working directory.
     """
-    asf_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(asf_dir, "alembic.ini")
+    soy_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(soy_dir, "alembic.ini")
 
 
 def run_alembic_upgrade(
@@ -181,7 +181,7 @@ def run_alembic_upgrade(
         upgrade.
     database_url:
         Override for the database URL. When ``None`` (the default),
-        the value is read from the ``ASF_DATABASE_URL`` env var, with
+        the value is read from the ``SOY_DATABASE_URL`` env var, with
         the same SQLite fallback used by :func:`get_database_url`.
     """
     # Local imports: alembic is a runtime dependency but we keep the

@@ -1,5 +1,5 @@
 """
-Tests for the ASF WebSocket event bus.
+Tests for the SOY WebSocket event bus.
 
 Covers:
 
@@ -32,9 +32,9 @@ import soy.models  # noqa: F401
 @pytest.fixture
 def engine(tmp_path, monkeypatch):
     import os
-    db_path = tmp_path / "asf_test.db"
+    db_path = tmp_path / "soy_test.db"
     url = f"sqlite:///{db_path}"
-    monkeypatch.setenv("ASF_DATABASE_URL", url)
+    monkeypatch.setenv("SOY_DATABASE_URL", url)
     from soy import db as db_mod
     from soy.services.praisonai_worker import reset_worker
 
@@ -75,7 +75,7 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
     # with the test's session factory so the existence check runs
     # against the same engine that created the mission.
     app.dependency_overrides[get_session_factory] = lambda: session_factory
-    monkeypatch.setenv("ASF_RUN_MIGRATIONS_ON_STARTUP", "false")
+    monkeypatch.setenv("SOY_RUN_MIGRATIONS_ON_STARTUP", "false")
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -88,7 +88,7 @@ def _create_mission(client) -> dict:
             "title": "M",
             "description": "d",
             "repo_url": "https://github.com/example/repo",
-            "branch_prefix": "feature/asf-1",
+            "branch_prefix": "feature/soy-1",
         },
     )
     assert r.status_code == 201
@@ -267,7 +267,7 @@ def test_wildcard_subscription_denied_without_token(client):
 
 def test_wildcard_subscription_allowed_with_token(client, monkeypatch):
     """A matching admin token authorizes the '*' firehose."""
-    monkeypatch.setenv("ASF_WS_ADMIN_TOKEN", "s3cret-token")
+    monkeypatch.setenv("SOY_WS_ADMIN_TOKEN", "s3cret-token")
     with client.websocket_connect(
         "/ws/missions/*/events?token=s3cret-token"
     ) as ws:
@@ -382,7 +382,7 @@ def test_wildcard_nonascii_token_denied_cleanly(client, monkeypatch):
     """A non-ASCII ?token= is rejected cleanly (no unhandled TypeError)."""
     from starlette.websockets import WebSocketDisconnect
 
-    monkeypatch.setenv("ASF_WS_ADMIN_TOKEN", "secret")
+    monkeypatch.setenv("SOY_WS_ADMIN_TOKEN", "secret")
     with client.websocket_connect("/ws/missions/*/events?token=tøken") as ws:
         with pytest.raises(WebSocketDisconnect):
             ws.receive_json()

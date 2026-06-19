@@ -2,7 +2,7 @@
 soy.models.base
 ===============
 
-SQLAlchemy ``DeclarativeBase`` for ASF.
+SQLAlchemy ``DeclarativeBase`` for SOY.
 
 A single ``Base`` is shared by every model in ``soy.models`` so that
 Alembic can read ``Base.metadata`` and autogenerate DDL diffs. The
@@ -85,9 +85,9 @@ class Uuid(TypeDecorator):
 
 
 class Base(DeclarativeBase):
-    """Declarative base for every ASF ORM model.
+    """Declarative base for every SOY ORM model.
 
-    All tables in the ASF schema inherit from this class so that
+    All tables in the SOY schema inherit from this class so that
     ``Base.metadata`` is the single source of truth used by Alembic to
     autogenerate migrations.
     """
@@ -96,7 +96,7 @@ class Base(DeclarativeBase):
 class TimestampMixin:
     """Mixin that adds ``created_at`` and ``updated_at`` columns.
 
-    Every ASF table has these two columns. The values are timezone-
+    Every SOY table has these two columns. The values are timezone-
     aware UTC timestamps. ``updated_at`` is initialised to the same
     value as ``created_at``; the application layer is responsible for
     bumping it on update (we deliberately do not use SQLAlchemy

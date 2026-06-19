@@ -3,11 +3,11 @@ soy.services.deerflow_client
 ============================
 
 Optional integration with the DeerFlow sandbox (the shared Piperoni
-service on port 2026). The ASF backend can trigger a sandboxed task
+service on port 2026). The SOY backend can trigger a sandboxed task
 run in DeerFlow instead of executing tools directly — the safe path for
 agents whose ``sandbox`` flag is set.
 
-Gated off by default (``ASF_DEERFLOW_ENABLED``); all calls are
+Gated off by default (``SOY_DEERFLOW_ENABLED``); all calls are
 best-effort with a timeout and never raise into the caller.
 
 .. note::
@@ -99,7 +99,7 @@ def maybe_trigger_sandbox(
 ) -> Optional[Dict[str, Any]]:
     """Trigger a DeerFlow sandbox run iff enabled AND the agent is sandboxed.
 
-    Gated by ``ASF_DEERFLOW_ENABLED``; a genuine no-op (returns ``None``
+    Gated by ``SOY_DEERFLOW_ENABLED``; a genuine no-op (returns ``None``
     without touching the network) when the feature is off or the agent
     is not sandboxed. This is the seam the execution layer calls.
     """

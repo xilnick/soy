@@ -1,10 +1,10 @@
 """
 ================================================================================
-ASF (Agent Service Framework)
+SOY (Soy Orchestration Yield)
 ================================================================================
 FastAPI-based mission orchestration backend.
 
-This package is the source-of-truth Python module for ASF. It is built
+This package is the source-of-truth Python module for SOY. It is built
 locally in the piperoni repository (not pulled from a remote git URL)
 so that:
 

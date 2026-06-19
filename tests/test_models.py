@@ -15,16 +15,16 @@ import os
 import pytest
 
 # These tests only inspect the declarative metadata — they do not
-# touch a live database. They are skipped when the ``asf`` package
+# touch a live database. They are skipped when the ``soy`` package
 # cannot be imported (which would indicate a broken environment).
 pytestmark = pytest.mark.skipif(
     not os.path.exists(
         os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "asf", "models", "__init__.py",
+            "soy", "models", "__init__.py",
         )
     ),
-    reason="ASF models package is not present",
+    reason="SOY models package is not present",
 )
 
 
@@ -112,7 +112,7 @@ def test_chat_messages_sender_type_not_nullable():
 
 
 def test_every_table_has_timestamps():
-    """Every ASF table must inherit TimestampMixin (created_at + updated_at)."""
+    """Every SOY table must inherit TimestampMixin (created_at + updated_at)."""
     from soy.models import (
         Agent, Approval, ChatMessage, Execution, Mission, Task,
     )

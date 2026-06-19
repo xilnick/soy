@@ -7,12 +7,12 @@ mission.
 
   * ``POST /api/v1/webhooks/github``
 
-Flow: verify the HMAC signature → require the ``asf-run`` label →
+Flow: verify the HMAC signature → require the ``soy-run`` label →
 ingest the mission via the shared idempotent
 :func:`soy.api.v1.missions.create_mission_from_ingestion` (so the
 idempotency rules are not forked) → optionally run the Git-as-SSOT
 branch/spec step. Signature verification is default-deny: with no
-``ASF_GITHUB_WEBHOOK_SECRET`` configured, no request is trusted.
+``SOY_GITHUB_WEBHOOK_SECRET`` configured, no request is trusted.
 """
 
 from __future__ import annotations
@@ -71,9 +71,9 @@ async def github_webhook(
     """Ingest a mission from a labelled GitHub issue event.
 
     A mission is created only when the issue carries the configured
-    trigger label (default ``asf-run``). Ingestion is idempotent on
+    trigger label (default ``soy-run``). Ingestion is idempotent on
     ``(source=github, external_id=issue number)`` so re-delivered
-    deliveries return the same mission. When ``ASF_GIT_ENABLED`` is set
+    deliveries return the same mission. When ``SOY_GIT_ENABLED`` is set
     the feature branch + ``spec.md`` are created as a best-effort step
     that never fails the webhook response.
     """
@@ -117,7 +117,7 @@ async def github_webhook(
         for lbl in (raw_labels if isinstance(raw_labels, list) else [])
         if isinstance(lbl, dict)
     }
-    trigger = config.asf_run_label()
+    trigger = config.soy_run_label()
     if trigger not in labels:
         return {"ignored": True, "reason": f"missing '{trigger}' label"}
 
@@ -136,7 +136,7 @@ async def github_webhook(
         title=issue.get("title") or f"Issue #{number}",
         description=issue.get("body"),
         repo_url=repo_url,
-        branch_prefix=f"feature/asf-{number}",
+        branch_prefix=f"feature/soy-{number}",
         source="github",
         external_id=str(number),
         issue_id=str(number),
@@ -154,7 +154,7 @@ async def github_webhook(
     # Best-effort Git-as-SSOT step. Gated off by default; never fails
     # the webhook. NOTE: this runs synchronously — with a slow remote a
     # real deployment should move the clone/commit to a background
-    # worker, but for M2 it is gated (ASF_GIT_ENABLED) and the working
+    # worker, but for M2 it is gated (SOY_GIT_ENABLED) and the working
     # clone is local.
     if config.git_enabled() and mission.repo_url:
         try:

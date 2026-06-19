@@ -9,7 +9,7 @@ to instantiate an ``Agent``.
 The function delegates to ``infra.config.resolve_model`` when the
 package is importable (so the resolution rule lives in one place
 across the Piperoni stack); it falls back to a local copy otherwise
-so the ASF worker can still spin up agents on a host where the
+so the SOY worker can still spin up agents on a host where the
 full Piperoni config is not on ``sys.path``.
 
 Routing rules
@@ -81,10 +81,10 @@ def resolve_model(model_str: str) -> Dict[str, Any]:
 
     raw = model_str.strip()
 
-    # The ASF resolver implements the routing rules locally so
+    # The SOY resolver implements the routing rules locally so
     # the worker can operate on hosts that do not have the
     # ``infra`` package on ``sys.path`` (e.g. lightweight
-    # ASF-only unit tests). The rules match what the
+    # SOY-only unit tests). The rules match what the
     # ``infra.config.resolve_model`` helper does, with two
     # additions that the worker relies on:
 

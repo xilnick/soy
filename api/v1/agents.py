@@ -13,7 +13,7 @@ in the validation contract for the agent orchestration engine:
   * ``GET  /api/v1/missions/{id}/agents/{agent_id}``     — read one
   * ``POST /api/v1/missions/{id}/agents/team``           — assemble
 
-The router uses :class:`soy.services.praisonai_worker.ASFWorker`
+The router uses :class:`soy.services.praisonai_worker.SoyWorker`
 to construct PraisonAI agent instances; the worker is also where
 the model resolution, sandbox tool list, and retry policy live.
 The router itself only persists DB rows and serialises
@@ -102,7 +102,7 @@ def create_agent(
     case future enum members are added without updating the
     validation contract.
 
-    After the row is inserted the ASF worker is asked to build
+    After the row is inserted the SOY worker is asked to build
     a ``praisonaiagents.Agent`` so the contract that
     "constructing an agent builds a PraisonAI agent" is
     exercised at write time. The PraisonAI instance is *not*

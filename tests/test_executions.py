@@ -57,9 +57,9 @@ class _StubWorkflow:
 @pytest.fixture
 def engine(tmp_path, monkeypatch):
     import os
-    db_path = tmp_path / "asf_test.db"
+    db_path = tmp_path / "soy_test.db"
     url = f"sqlite:///{db_path}"
-    monkeypatch.setenv("ASF_DATABASE_URL", url)
+    monkeypatch.setenv("SOY_DATABASE_URL", url)
     from soy import db as db_mod
     from soy.services.praisonai_worker import reset_worker
 
@@ -95,7 +95,7 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
             db.close()
 
     app.dependency_overrides[get_db] = _get_db_override
-    monkeypatch.setenv("ASF_RUN_MIGRATIONS_ON_STARTUP", "false")
+    monkeypatch.setenv("SOY_RUN_MIGRATIONS_ON_STARTUP", "false")
     monkeypatch.setattr("praisonaiagents.Agent", _StubPraisonAgent, raising=False)
     monkeypatch.setattr("praisonaiagents.Task", _StubPraisonTask, raising=False)
     monkeypatch.setattr("praisonaiagents.Agents", _StubWorkflow, raising=False)
@@ -111,7 +111,7 @@ def _create_mission(client) -> dict:
             "title": "M",
             "description": "d",
             "repo_url": "https://github.com/example/repo",
-            "branch_prefix": "feature/asf-1",
+            "branch_prefix": "feature/soy-1",
         },
     )
     assert r.status_code == 201
@@ -201,7 +201,7 @@ def test_get_execution_returns_404_on_wrong_mission(client, session_factory):
             "title": "M2",
             "description": "d",
             "repo_url": "https://github.com/example/repo2",
-            "branch_prefix": "feature/asf-2",
+            "branch_prefix": "feature/soy-2",
         },
     ).json()
     agent = _create_agent(client, m1["id"])

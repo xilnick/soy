@@ -2,7 +2,7 @@
 soy.schemas
 ============
 
-Pydantic request/response schemas for the ASF API.
+Pydantic request/response schemas for the SOY API.
 
 These models are intentionally separate from the SQLAlchemy ORM
 models in :mod:`soy.models`. The ORM models describe the persisted
@@ -36,19 +36,17 @@ from soy.models.enums import (
 class MissionCreate(BaseModel):
     """Request body for ``POST /api/v1/missions``.
 
-    The required fields are: ``title``, ``repo_url``, and
-    ``branch_prefix``. The combination ``(repo_url, branch_prefix)``
-    must be unique; a duplicate insert returns HTTP 409 (see the
-    API state machine and router). ``description``, ``source``,
-    ``external_id``, ``issue_id``, and ``mission_metadata`` are
-    optional — a mission can be created with only the three
-    required fields, and the application fills in the rest as
-    the agent team progresses.
+    Required: ``title``. ``repo_url`` and ``branch_prefix`` are
+    optional — dashboard-first missions do not need a repo until
+    execution begins. The combination ``(repo_url, branch_prefix)``
+    must be unique when both are set; a duplicate insert returns
+    HTTP 409. ``description``, ``source``, ``external_id``,
+    ``issue_id``, and ``mission_metadata`` are also optional.
     """
 
     title: str = Field(..., min_length=1, max_length=512)
-    repo_url: str = Field(..., min_length=1, max_length=512)
-    branch_prefix: str = Field(..., min_length=1, max_length=128)
+    repo_url: Optional[str] = Field(default=None, max_length=512)
+    branch_prefix: Optional[str] = Field(default=None, max_length=128)
     description: Optional[str] = Field(default=None, max_length=10_000)
     source: Optional[str] = Field(default=None, max_length=64)
     external_id: Optional[str] = Field(default=None, max_length=128)
@@ -498,3 +496,156 @@ class MissionLogResponse(BaseModel):
     mission_id: uuid.UUID
     total: int
     entries: List[LogEntry]
+
+
+# ---------------------------------------------------------------------------
+# Control dashboard
+# ---------------------------------------------------------------------------
+class ControlMissionCreate(BaseModel):
+    """Request body for ``POST /api/v1/control/missions``.
+
+    Minimal dashboard-first creation — only title is required.
+    ``description`` and ``source`` are optional. No repo_url or
+    branch_prefix needed for the control dashboard.
+    """
+
+    title: str = Field(..., min_length=1, max_length=512)
+    description: Optional[str] = Field(default=None, max_length=10_000)
+    source: Optional[str] = Field(default="dashboard", max_length=64)
+    mission_metadata: Optional[dict] = Field(default=None)
+
+
+class RefineRequest(BaseModel):
+    """Request body for ``POST /api/v1/control/missions/{id}/refine``.
+
+    Send a refinement prompt to the mission's orchestrator agent.
+    The agent iterates on the mission description, improving clarity,
+    scope, or technical details.
+    """
+
+    prompt: Optional[str] = Field(
+        default=None,
+        max_length=20_000,
+        description="Optional refinement instructions. "
+                    "When None, the agent refines based on existing description.",
+    )
+    model: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        description="Override model for the refinement agent.",
+    )
+    timeout_seconds: Optional[int] = Field(default=300, ge=1, le=3600)
+
+
+class ResearchRequest(BaseModel):
+    """Request body for ``POST /api/v1/control/missions/{id}/research``.
+
+    Dispatches a DeerFlow research task for the mission.
+    Results are stored in the mission's metadata under ``research``.
+    """
+
+    query: Optional[str] = Field(
+        default=None,
+        max_length=20_000,
+        description="Research query. Defaults to mission title + description.",
+    )
+    timeout_seconds: Optional[int] = Field(default=300, ge=1, le=3600)
+
+
+class VerifyRequest(BaseModel):
+    """Request body for ``POST /api/v1/control/missions/{id}/verify``.
+
+    Dispatches the QA/reviewer agent to verify the mission plan.
+    Stores verification result in mission metadata under ``verification``.
+    """
+
+    prompt: Optional[str] = Field(
+        default=None,
+        max_length=20_000,
+        description="Verification instructions. "
+                    "Defaults to checking plan completeness and feasibility.",
+    )
+    model: Optional[str] = Field(default=None, max_length=128)
+    timeout_seconds: Optional[int] = Field(default=300, ge=1, le=3600)
+
+
+class AutoRunRequest(BaseModel):
+    """Request body for ``POST /api/v1/control/missions/{id}/auto-run``.
+
+    Full autonomous run: branch → dispatch agent → commit → merge.
+    Requires that mission has a repo_url set (either at creation or
+    via PUT /missions/{id}).
+    """
+
+    repo_url: Optional[str] = Field(
+        default=None,
+        max_length=512,
+        description="Set repo_url on the mission if not already set.",
+    )
+    branch_prefix: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        description="Override branch prefix (default: feature/soy-{id}).",
+    )
+    agent_name: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        description="Coding agent to use (default: use mission's coder agent).",
+    )
+    prompt: Optional[str] = Field(
+        default=None,
+        max_length=50_000,
+        description="Override prompt for the coding agent.",
+    )
+    auto_merge: bool = Field(
+        default=True,
+        description="When True, auto-merge the branch after agent completes.",
+    )
+    timeout_seconds: Optional[int] = Field(default=600, ge=1, le=7200)
+
+
+class MergeRequest(BaseModel):
+    """Request body for ``POST /api/v1/control/missions/{id}/merge``.
+
+    Merge the mission's feature branch into main (local backend)
+    or merge the PR (remote backend).
+    """
+
+    strategy: str = Field(
+        default="squash",
+        max_length=16,
+        description="Merge strategy: 'squash' or 'merge'.",
+    )
+
+
+class ControlStatusResponse(BaseModel):
+    """Aggregated status for a mission in the control dashboard."""
+
+    mission_id: uuid.UUID
+    title: str
+    status: MissionStatus
+    description: Optional[str] = None
+    repo_url: Optional[str] = None
+    branch: Optional[str] = None
+    agent_count: int = 0
+    task_count: int = 0
+    completed_tasks: int = 0
+    git_info: Optional[dict] = None
+    research_results: Optional[dict] = None
+    verification_results: Optional[dict] = None
+    refinement_history: Optional[list] = None
+    last_execution: Optional[dict] = None
+
+
+class AutoRunResponse(BaseModel):
+    """Response for the autonomous run endpoint."""
+
+    mission_id: uuid.UUID
+    status: str
+    branch: Optional[str] = None
+    commit_sha: Optional[str] = None
+    merged: bool = False
+    merge_sha: Optional[str] = None
+    agent_output: Optional[dict] = None
+    error: Optional[str] = None
+    message: Optional[str] = None

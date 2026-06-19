@@ -2,7 +2,7 @@
 soy.models
 ==========
 
-SQLAlchemy ORM models for ASF. Re-exports the ``Base`` declarative
+SQLAlchemy ORM models for SOY. Re-exports the ``Base`` declarative
 class, every concrete model, and the Python enum types used by the
 schema.
 

@@ -21,7 +21,7 @@ class TestGitServiceOpenPR:
 
         with mock.patch("subprocess.run", return_value=fake_result) as m_run:
             pr_num, pr_url = gs.open_pr(
-                "feature/asf-1", "Fix tests", "Body text",
+                "feature/soy-1", "Fix tests", "Body text",
                 cwd=str(tmp_path),
             )
 
@@ -30,7 +30,7 @@ class TestGitServiceOpenPR:
         cmd = m_run.call_args[0][0]
         assert cmd[:3] == ["gh", "pr", "create"]
         assert "--head" in cmd
-        assert "feature/asf-1" in cmd
+        assert "feature/soy-1" in cmd
 
     def test_open_pr_failure_raises(self, tmp_path):
         from soy.services.git_service import GitService
@@ -98,14 +98,14 @@ class TestGitServiceCommitAndPush:
         fake_commit = mock.Mock()
         fake_commit.hexsha = "abc12345"
         fake_repo.index.commit.return_value = fake_commit
-        fake_repo.active_branch.name = "feature/asf-1"
+        fake_repo.active_branch.name = "feature/soy-1"
         fake_repo.config_writer.return_value.__enter__ = mock.Mock(return_value=mock.Mock())
         fake_repo.config_writer.return_value.__exit__ = mock.Mock(return_value=False)
 
         with mock.patch("git.Repo", return_value=fake_repo):
             gs.commit_and_push(str(tmp_path), "test commit")
 
-        fake_repo.remotes.origin.push.assert_called_once_with("feature/asf-1")
+        fake_repo.remotes.origin.push.assert_called_once_with("feature/soy-1")
 
 
 class TestGitServiceCreateWorktree:
@@ -121,9 +121,9 @@ class TestGitServiceCreateWorktree:
         with mock.patch("os.path.isdir", return_value=True):
             with mock.patch("os.makedirs"):
                 with mock.patch("subprocess.run", return_value=fake_result) as m_run:
-                    path = gs.create_worktree("mission-123", "feature/asf-1")
+                    path = gs.create_worktree("mission-123", "feature/soy-1")
 
-        assert "/tmp/asf-worktrees/mission-123" == path
+        assert "/tmp/soy-worktrees/mission-123" == path
         # Should have tried to add worktree
         calls = [c for c in m_run.call_args_list if "worktree" in str(c)]
         assert len(calls) >= 1
@@ -136,4 +136,4 @@ class TestGitServiceCreateWorktree:
         with mock.patch("os.path.isdir", return_value=False):
             with mock.patch("os.makedirs"):
                 with pytest.raises(RuntimeError, match="Repo not cloned"):
-                    gs.create_worktree("mission-123", "feature/asf-1")
+                    gs.create_worktree("mission-123", "feature/soy-1")

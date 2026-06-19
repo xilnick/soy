@@ -1,4 +1,4 @@
-"""ASF — add agent.sandbox column
+"""SOY — add agent.sandbox column
 
 Revision ID: 0003_agent_sandbox
 Revises: 0002_branch_prefix_and_unique

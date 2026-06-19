@@ -53,7 +53,7 @@ def _record_posts(monkeypatch):
 
 def test_mc_sync_disabled_is_noop(monkeypatch):
     from soy.services import mission_control_sync as mc
-    monkeypatch.delenv("ASF_MC_SYNC_ENABLED", raising=False)
+    monkeypatch.delenv("SOY_MC_SYNC_ENABLED", raising=False)
     calls = _record_posts(monkeypatch)
     mc.sync_agent(_agent())
     mc.sync_task(_task())
@@ -63,7 +63,7 @@ def test_mc_sync_disabled_is_noop(monkeypatch):
 
 def test_mc_sync_enabled_pushes_each_entity(monkeypatch):
     from soy.services import mission_control_sync as mc
-    monkeypatch.setenv("ASF_MC_SYNC_ENABLED", "true")
+    monkeypatch.setenv("SOY_MC_SYNC_ENABLED", "true")
     calls = _record_posts(monkeypatch)
 
     a = _agent()
@@ -114,7 +114,7 @@ def test_mc_headers_include_api_key(monkeypatch):
 # ---------------------------------------------------------------------------
 def test_deerflow_disabled_is_noop(monkeypatch):
     from soy.services import deerflow_client as dc
-    monkeypatch.delenv("ASF_DEERFLOW_ENABLED", raising=False)
+    monkeypatch.delenv("SOY_DEERFLOW_ENABLED", raising=False)
     called = []
     monkeypatch.setattr(
         dc.DeerFlowClient, "trigger_sandbox_task",
@@ -128,7 +128,7 @@ def test_deerflow_disabled_is_noop(monkeypatch):
 
 def test_deerflow_enabled_triggers_for_sandboxed_agent(monkeypatch):
     from soy.services import deerflow_client as dc
-    monkeypatch.setenv("ASF_DEERFLOW_ENABLED", "true")
+    monkeypatch.setenv("SOY_DEERFLOW_ENABLED", "true")
     called = []
     monkeypatch.setattr(
         dc.DeerFlowClient, "trigger_sandbox_task",
@@ -144,7 +144,7 @@ def test_deerflow_enabled_triggers_for_sandboxed_agent(monkeypatch):
 
 def test_deerflow_skips_non_sandboxed_agent(monkeypatch):
     from soy.services import deerflow_client as dc
-    monkeypatch.setenv("ASF_DEERFLOW_ENABLED", "true")
+    monkeypatch.setenv("SOY_DEERFLOW_ENABLED", "true")
     called = []
     monkeypatch.setattr(
         dc.DeerFlowClient, "trigger_sandbox_task",

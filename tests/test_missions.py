@@ -48,10 +48,10 @@ def engine(monkeypatch):
     import os
     import tempfile
 
-    fd, db_path = tempfile.mkstemp(suffix=".db", prefix="asf_test_")
+    fd, db_path = tempfile.mkstemp(suffix=".db", prefix="soy_test_")
     os.close(fd)
     url = f"sqlite:///{db_path}"
-    monkeypatch.setenv("ASF_DATABASE_URL", url)
+    monkeypatch.setenv("SOY_DATABASE_URL", url)
     from soy import db as db_mod
     from soy.services.praisonai_worker import reset_worker
 
@@ -93,7 +93,7 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
     # already created by the ``engine`` fixture, and the hook would
     # try to run ``alembic upgrade head`` against the file-based
     # fallback URL.
-    monkeypatch.setenv("ASF_RUN_MIGRATIONS_ON_STARTUP", "false")
+    monkeypatch.setenv("SOY_RUN_MIGRATIONS_ON_STARTUP", "false")
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -104,7 +104,7 @@ def _create_payload(**overrides) -> dict:
         "title": "Build feature X",
         "description": "Implement feature X end-to-end",
         "repo_url": "https://github.com/example/repo",
-        "branch_prefix": "feature/asf-1",
+        "branch_prefix": "feature/soy-1",
     }
     payload.update(overrides)
     return payload
@@ -143,17 +143,18 @@ def test_create_mission_missing_title_returns_422(client):
     assert any("title" in str(err) for err in body["detail"])
 
 
-def test_create_mission_missing_repo_url_returns_422(client):
-    # The spec lists ``title`` and ``repo_url`` as required. The
-    # router treats ``branch_prefix`` as required too because the
-    # combination is uniquely constrained.
+def test_create_mission_missing_repo_url_succeeds(client):
+    # repo_url and branch_prefix are now optional for dashboard-first
+    # mission creation (no GitHub required).
     payload = _create_payload()
     del payload["repo_url"]
+    del payload["branch_prefix"]
     r = client.post("/api/v1/missions", json=payload)
-    assert r.status_code == 422
+    assert r.status_code == 201, r.text
     body = r.json()
-    assert "detail" in body
-    assert any("repo_url" in str(err) for err in body["detail"])
+    assert body["repo_url"] is None
+    assert body["branch_prefix"] is None
+    assert body["status"] == "created"
 
 
 def test_create_mission_blank_required_field_returns_422(client):
@@ -173,7 +174,7 @@ def test_list_missions_pagination_and_filter(client):
             "/api/v1/missions",
             json=_create_payload(
                 title=f"M{i}",
-                branch_prefix=f"feature/asf-{i}",
+                branch_prefix=f"feature/soy-{i}",
             ),
         )
         assert r.status_code == 201
@@ -345,7 +346,7 @@ def test_uniqueness_returns_409(client):
         "/api/v1/missions",
         json=_create_payload(
             repo_url="https://github.com/example/repo",
-            branch_prefix="feature/asf-7",
+            branch_prefix="feature/soy-7",
         ),
     )
     assert r1.status_code == 201
@@ -355,7 +356,7 @@ def test_uniqueness_returns_409(client):
         json=_create_payload(
             title="Different title",
             repo_url="https://github.com/example/repo",
-            branch_prefix="feature/asf-7",
+            branch_prefix="feature/soy-7",
         ),
     )
     assert r2.status_code == 409
@@ -368,7 +369,7 @@ def test_uniqueness_allows_different_branch_prefix(client):
         "/api/v1/missions",
         json=_create_payload(
             repo_url="https://github.com/example/repo",
-            branch_prefix="feature/asf-A",
+            branch_prefix="feature/soy-A",
         ),
     )
     assert r1.status_code == 201
@@ -376,7 +377,7 @@ def test_uniqueness_allows_different_branch_prefix(client):
         "/api/v1/missions",
         json=_create_payload(
             repo_url="https://github.com/example/repo",
-            branch_prefix="feature/asf-B",
+            branch_prefix="feature/soy-B",
         ),
     )
     assert r2.status_code == 201
@@ -734,7 +735,7 @@ def test_praisonai_trigger_returns_expected_shape():
 # ---------------------------------------------------------------------------
 def test_planning_trigger_does_not_persist_api_key(client, monkeypatch):
     """The resolved cloud credential must never reach mission_metadata."""
-    monkeypatch.setenv("ASF_MODEL", "kimi-k2.6:cloud")
+    monkeypatch.setenv("SOY_MODEL", "kimi-k2.6:cloud")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-super-secret-should-not-leak")
     r = client.post("/api/v1/missions", json=_create_payload())
     mid = r.json()["id"]
@@ -871,18 +872,18 @@ def test_ingestion_without_source_is_not_deduped(client):
     500 (no MultipleResultsFound from the pre-check).
     """
     r1 = client.post("/api/v1/missions", json=_create_payload(
-        external_id="issue-7", branch_prefix="feature/asf-a",
+        external_id="issue-7", branch_prefix="feature/soy-a",
     ))
     assert r1.status_code == 201
     r2 = client.post("/api/v1/missions", json=_create_payload(
-        external_id="issue-7", branch_prefix="feature/asf-b",
+        external_id="issue-7", branch_prefix="feature/soy-b",
     ))
     assert r2.status_code == 201
     assert r2.json()["id"] != r1.json()["id"]  # not collapsed
     # A third with the same source-less external_id must still 201
     # (the pre-check never runs scalar_one_or_none on a multi-row set).
     r3 = client.post("/api/v1/missions", json=_create_payload(
-        external_id="issue-7", branch_prefix="feature/asf-c",
+        external_id="issue-7", branch_prefix="feature/soy-c",
     ))
     assert r3.status_code == 201
     assert client.get("/api/v1/missions").json()["total"] == 3

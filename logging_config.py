@@ -2,7 +2,7 @@
 soy.logging_config
 ===================
 
-Structured JSON logging for the ASF backend.
+Structured JSON logging for the SOY backend.
 
 FastAPI/uvicorn run under PM2 in production; PM2 captures stdout line
 by line. Emitting one JSON object per line makes the logs machine-
@@ -68,13 +68,13 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-_HANDLER_MARKER = "_asf_log_handler"
+_HANDLER_MARKER = "_soy_log_handler"
 
 
 def configure_logging(fmt: str | None = None, level: str | None = None) -> None:
-    """Install the ASF stdout log handler on the root logger.
+    """Install the SOY stdout log handler on the root logger.
 
-    Idempotent: a previously-installed ASF handler is removed first, so
+    Idempotent: a previously-installed SOY handler is removed first, so
     calling this more than once (e.g. a re-entered FastAPI lifespan in
     tests) does not stack duplicate handlers. ``fmt`` defaults to
     :func:`soy.config.log_format` (``"json"`` unless overridden).
@@ -104,12 +104,12 @@ def configure_logging(fmt: str | None = None, level: str | None = None) -> None:
 
 
 def reset_logging() -> None:
-    """Remove the ASF stdout handler installed by :func:`configure_logging`.
+    """Remove the SOY stdout handler installed by :func:`configure_logging`.
 
     Called from the FastAPI lifespan shutdown so the handler does not
     outlive the app. In production this is a no-op cleanup at process
     exit; in tests (where the lifespan is entered per ``TestClient``)
-    it keeps the root logger from accumulating ASF handlers across the
+    it keeps the root logger from accumulating SOY handlers across the
     session.
     """
     root = logging.getLogger()

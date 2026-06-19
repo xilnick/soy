@@ -1,4 +1,4 @@
-"""ASF — add branch_prefix and (repo_url, branch_prefix) uniqueness
+"""SOY — add branch_prefix and (repo_url, branch_prefix) uniqueness
 
 Revision ID: 0002_branch_prefix_and_unique
 Revises: 0001_initial_schema

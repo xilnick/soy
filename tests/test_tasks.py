@@ -117,9 +117,9 @@ def engine(tmp_path, monkeypatch):
     ``StaticPool`` keeps a single connection in use.
     """
     import os
-    db_path = tmp_path / "asf_test.db"
+    db_path = tmp_path / "soy_test.db"
     url = f"sqlite:///{db_path}"
-    monkeypatch.setenv("ASF_DATABASE_URL", url)
+    monkeypatch.setenv("SOY_DATABASE_URL", url)
     from soy import db as db_mod
     from soy.services.praisonai_worker import reset_worker
 
@@ -155,7 +155,7 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
             db.close()
 
     app.dependency_overrides[get_db] = _get_db_override
-    monkeypatch.setenv("ASF_RUN_MIGRATIONS_ON_STARTUP", "false")
+    monkeypatch.setenv("SOY_RUN_MIGRATIONS_ON_STARTUP", "false")
     monkeypatch.setattr(
         "praisonaiagents.Agent", _StubPraisonAgent, raising=False,
     )
@@ -178,13 +178,13 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
     # Without this the worker holds a sessionmaker bound to a
     # different (or stale) engine and the lookup
     # ``db.get(Agent, ...)`` returns None.
-    import soy.db as _asf_db
+    import soy.db as _soy_db
     # The worker calls ``soy.db.get_session_local()`` to
     # obtain the sessionmaker. Tests inject a sessionmaker
     # directly, so wrap it in a function with the same
     # signature as the production ``get_session_local``.
     monkeypatch.setattr(
-        _asf_db, "get_session_local", lambda: session_factory,
+        _soy_db, "get_session_local", lambda: session_factory,
     )
     # Force the worker singleton to be rebuilt on the next
     # ``get_worker()`` call so it picks up the patched
@@ -202,7 +202,7 @@ def _create_mission(client, **overrides) -> dict:
         "title": "M",
         "description": "d",
         "repo_url": "https://github.com/example/repo",
-        "branch_prefix": "feature/asf-1",
+        "branch_prefix": "feature/soy-1",
     }
     payload.update(overrides)
     r = client.post("/api/v1/missions", json=payload)
@@ -257,8 +257,8 @@ def test_create_task_persists_row(client, session_factory):
 
 
 def test_create_task_for_wrong_mission_returns_404(client):
-    m1 = _create_mission(client, branch_prefix="feature/asf-200")
-    m2 = _create_mission(client, branch_prefix="feature/asf-201")
+    m1 = _create_mission(client, branch_prefix="feature/soy-200")
+    m2 = _create_mission(client, branch_prefix="feature/soy-201")
     agent = _create_agent(client, m1["id"])
     r = client.post(
         f"/api/v1/missions/{m2['id']}/agents/{agent['id']}/tasks",
@@ -563,7 +563,7 @@ def test_parallel_execution_supports_multiple_tasks(
     # Build a parallel-friendly engine on a different file so
     # we don't disturb the main test engine.
     from sqlalchemy.pool import QueuePool
-    parallel_path = tmp_path / "asf_parallel.db"
+    parallel_path = tmp_path / "soy_parallel.db"
     parallel_url = f"sqlite:///{parallel_path}"
     parallel_eng = create_engine(
         parallel_url,
@@ -578,9 +578,9 @@ def test_parallel_execution_supports_multiple_tasks(
 
     # Re-route the worker + request handler to the parallel
     # engine for the duration of this test.
-    import soy.db as _asf_db
+    import soy.db as _soy_db
     monkeypatch.setattr(
-        _asf_db, "get_session_local", lambda: parallel_sf,
+        _soy_db, "get_session_local", lambda: parallel_sf,
     )
     import soy.services.praisonai_worker as paw_mod
     paw_mod.reset_worker()
@@ -650,7 +650,7 @@ def _create_mission_on(client, sf) -> dict:
         "title": "M",
         "description": "d",
         "repo_url": "https://github.com/example/repo",
-        "branch_prefix": "feature/asf-1",
+        "branch_prefix": "feature/soy-1",
     }
     r = client.post("/api/v1/missions", json=payload)
     assert r.status_code == 201, r.text
@@ -711,7 +711,7 @@ def test_parallel_execution_no_deadlock_with_many_tasks(
     escalated. With separate pools all tasks complete promptly.
     """
     from sqlalchemy.pool import QueuePool
-    parallel_path = tmp_path / "asf_nodeadlock.db"
+    parallel_path = tmp_path / "soy_nodeadlock.db"
     parallel_url = f"sqlite:///{parallel_path}"
     parallel_eng = create_engine(
         parallel_url,
@@ -723,8 +723,8 @@ def test_parallel_execution_no_deadlock_with_many_tasks(
     parallel_sf = sessionmaker(
         bind=parallel_eng, autoflush=False, autocommit=False, future=True,
     )
-    import soy.db as _asf_db
-    monkeypatch.setattr(_asf_db, "get_session_local", lambda: parallel_sf)
+    import soy.db as _soy_db
+    monkeypatch.setattr(_soy_db, "get_session_local", lambda: parallel_sf)
     import soy.services.praisonai_worker as paw_mod
     paw_mod.reset_worker()
 
@@ -869,7 +869,7 @@ def test_invoke_workflow_does_not_double_run_on_internal_typeerror():
     doubling side effects. The signature-based detection calls start
     exactly once.
     """
-    from soy.services.praisonai_worker import ASFWorker
+    from soy.services.praisonai_worker import SoyWorker
 
     class _FakeWorkflow:
         def __init__(self) -> None:
@@ -881,7 +881,7 @@ def test_invoke_workflow_does_not_double_run_on_internal_typeerror():
 
     wf = _FakeWorkflow()
     with pytest.raises(TypeError):
-        ASFWorker._invoke_workflow(wf)
+        SoyWorker._invoke_workflow(wf)
     assert wf.calls == 1
 
 
@@ -938,13 +938,13 @@ def test_list_tasks_pagination(client):
 def test_default_model_fallback_is_local_no_key(client, monkeypatch):
     """A model-less agent must not default to a :cloud model (#24).
 
-    With no explicit model and no ``ASF_MODEL``, the worker falls back
+    With no explicit model and no ``SOY_MODEL``, the worker falls back
     to a local Ollama model whose placeholder key is ``"ollama"`` — a
     cloud default would instead resolve to an empty (credentialed) key.
     The stubbed ``praisonaiagents.Agent`` records the kwargs the worker
     passed, so we can assert the resolved key without a real LLM.
     """
-    monkeypatch.delenv("ASF_MODEL", raising=False)
+    monkeypatch.delenv("SOY_MODEL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     from soy.services.praisonai_worker import get_worker

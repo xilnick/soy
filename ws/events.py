@@ -2,11 +2,11 @@
 soy.ws.events
 =============
 
-Real-time event bus for ASF.
+Real-time event bus for SOY.
 
 The WebSocket layer is the canonical "fan-out" surface for
 agent / task / mission lifecycle events. Producers
-(:class:`soy.services.praisonai_worker.ASFWorker`) call
+(:class:`soy.services.praisonai_worker.SoyWorker`) call
 :func:`publish` from any thread; the bus hands the event to every
 WebSocket client connected to the relevant mission.
 
@@ -22,7 +22,7 @@ Threading model
 
 * Each connected client owns a *bounded* ``asyncio.Queue`` that the
   publisher writes to.
-* :func:`publish` is called from non-asyncio threads (the ASF worker
+* :func:`publish` is called from non-asyncio threads (the SOY worker
   runs PraisonAI inside a thread-pool executor, and FastAPI's sync
   routes run in the anyio threadpool). ``asyncio.Queue`` is **not**
   thread-safe, so the publisher schedules the enqueue onto the
@@ -243,7 +243,7 @@ def encode_event(envelope: Dict[str, Any]) -> str:
 # Worker publisher
 # ---------------------------------------------------------------------------
 def install_as_publisher() -> None:
-    """Install :func:`publish` as the ASF worker's event publisher.
+    """Install :func:`publish` as the SOY worker's event publisher.
 
     Idempotent: calling it twice has the same effect as calling
     it once. The worker module looks up the singleton publisher

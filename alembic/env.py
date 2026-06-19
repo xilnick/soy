@@ -1,23 +1,23 @@
 """
 ================================================================================
-ASF Alembic Environment
+SOY Alembic Environment
 ================================================================================
 Standard Alembic env.py with two important twists:
 
-1. The database URL is read at runtime from the ``ASF_DATABASE_URL``
+1. The database URL is read at runtime from the ``SOY_DATABASE_URL``
    environment variable (so the same migration script works against
    local SQLite, the test PostgreSQL container, and the production
    PostgreSQL instance without ever baking a secret into the repo).
 
 2. The ``Base.metadata`` is imported from :mod:`soy.models`, which
-   means *all* ASF models are part of the autogenerate target — there
+   means *all* SOY models are part of the autogenerate target — there
    is no risk of a new model being added without its table being
    included in the next migration.
 
 Run migrations with::
 
     cd /Users/purplelephant/projects/piperoni
-    ASF_DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/asf \
+    SOY_DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/soy \
         alembic --config soy/alembic.ini upgrade head
 
 Or, equivalently, invoke the ``run_alembic_upgrade`` helper from
@@ -56,7 +56,7 @@ config = context.config
 # IN-PROCESS by the FastAPI ``lifespan`` hook (via
 # ``soy.db.run_alembic_upgrade``). The default ``fileConfig`` behaviour
 # (``disable_existing_loggers=True``) would tear down every already-
-# configured ``asf.*`` logger the moment the app runs its startup
+# configured ``soy.*`` logger the moment the app runs its startup
 # migration, silently breaking the application's structured logging
 # (and, in tests, ``caplog`` capture for any logger configured before a
 # migration ran). Preserving existing loggers keeps both intact.
@@ -72,20 +72,20 @@ def _resolve_database_url() -> str:
 
     Order of resolution:
 
-    1. ``ASF_DATABASE_URL`` env var (always wins; set by the deploy
+    1. ``SOY_DATABASE_URL`` env var (always wins; set by the deploy
        blueprint's ``.env`` file).
     2. The ``sqlalchemy.url`` field in alembic.ini (almost always
        empty, present only so ``alembic check`` does not error).
     3. A SQLite file in the current directory, so the offline mode
        and ``alembic check`` work in a clean checkout.
     """
-    env_url = os.getenv("ASF_DATABASE_URL", "").strip()
+    env_url = os.getenv("SOY_DATABASE_URL", "").strip()
     if env_url:
         return env_url
     ini_url = (config.get_main_option("sqlalchemy.url") or "").strip()
     if ini_url:
         return ini_url
-    return "sqlite:///./asf_dev.db"
+    return "sqlite:///./soy_dev.db"
 
 
 def run_migrations_offline() -> None:

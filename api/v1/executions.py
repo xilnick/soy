@@ -11,7 +11,7 @@ The router is mounted under ``/api/v1/missions/{mission_id}`` by
   * ``GET /api/v1/missions/{id}/executions/{eid}``       — read
   * ``GET /api/v1/missions/{id}/tasks/{tid}/executions`` — list for a task
 
-The execution rows are inserted by the ASF worker when a task
+The execution rows are inserted by the SOY worker when a task
 is run; this router only reads them. The 3-try retry policy is
 visible in the response: ``attempt_number`` increments 1 → 2
 → 3 across the executions rows for a single task.

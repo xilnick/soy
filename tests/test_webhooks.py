@@ -1,7 +1,7 @@
 """
 Tests for the GitHub webhook + Git-as-SSOT service.
 
-Covers signature verification (default-deny), the ``asf-run`` label
+Covers signature verification (default-deny), the ``soy-run`` label
 gate, idempotent ingestion through the shared
 ``create_mission_from_ingestion`` path, and the gated branch/spec git
 step (run against a local temp repo — no network).
@@ -34,9 +34,9 @@ from soy.models.mission import Mission
 # ---------------------------------------------------------------------------
 @pytest.fixture
 def engine(tmp_path, monkeypatch):
-    db_path = tmp_path / "asf_wh.db"
+    db_path = tmp_path / "soy_wh.db"
     url = f"sqlite:///{db_path}"
-    monkeypatch.setenv("ASF_DATABASE_URL", url)
+    monkeypatch.setenv("SOY_DATABASE_URL", url)
     from soy import db as db_mod
     from soy.services.praisonai_worker import reset_worker
 
@@ -74,9 +74,9 @@ def client(session_factory, monkeypatch) -> Iterator[TestClient]:
     # session, but the GitService is constructed via get_session... no:
     # it takes the live db. Still, keep the worker's session factory in
     # sync for safety.
-    import soy.db as _asf_db
-    monkeypatch.setattr(_asf_db, "get_session_local", lambda: session_factory)
-    monkeypatch.setenv("ASF_RUN_MIGRATIONS_ON_STARTUP", "false")
+    import soy.db as _soy_db
+    monkeypatch.setattr(_soy_db, "get_session_local", lambda: session_factory)
+    monkeypatch.setenv("SOY_RUN_MIGRATIONS_ON_STARTUP", "false")
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
@@ -100,7 +100,7 @@ def remote_repo(tmp_path):
 SECRET = "whsec-test"
 
 
-def _issue_payload(number=42, labels=("asf-run",), repo_url="https://github.com/x/y.git", title="Add feature X", body="do the thing"):
+def _issue_payload(number=42, labels=("soy-run",), repo_url="https://github.com/x/y.git", title="Add feature X", body="do the thing"):
     return {
         "action": "labeled",
         "issue": {
@@ -126,20 +126,20 @@ def _post(client, payload, *, secret=SECRET, event="issues", sign=True):
 # Signature / default-deny
 # ---------------------------------------------------------------------------
 def test_webhook_rejects_missing_signature(client, monkeypatch):
-    monkeypatch.setenv("ASF_GITHUB_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("SOY_GITHUB_WEBHOOK_SECRET", SECRET)
     r = _post(client, _issue_payload(), sign=False)
     assert r.status_code == 401
     assert r.json()["code"] == "INVALID_SIGNATURE"
 
 
 def test_webhook_rejects_bad_signature(client, monkeypatch):
-    monkeypatch.setenv("ASF_GITHUB_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("SOY_GITHUB_WEBHOOK_SECRET", SECRET)
     r = _post(client, _issue_payload(), secret="wrong-secret")
     assert r.status_code == 401
 
 
 def test_webhook_default_deny_when_no_secret_configured(client, monkeypatch):
-    monkeypatch.delenv("ASF_GITHUB_WEBHOOK_SECRET", raising=False)
+    monkeypatch.delenv("SOY_GITHUB_WEBHOOK_SECRET", raising=False)
     # Even a "correctly signed" request is denied — no secret = disabled.
     r = _post(client, _issue_payload())
     assert r.status_code == 401
@@ -155,7 +155,7 @@ def test_verify_signature_handles_nonascii_header(monkeypatch):
     """
     from soy.api.v1.webhooks import _verify_signature
 
-    monkeypatch.setenv("ASF_GITHUB_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("SOY_GITHUB_WEBHOOK_SECRET", SECRET)
     assert _verify_signature(b"body", "sha256=t\xe9ken-non-ascii") is False
     # Sanity: a correct signature still validates.
     good = "sha256=" + hmac.new(SECRET.encode(), b"body", hashlib.sha256).hexdigest()
@@ -166,14 +166,14 @@ def test_verify_signature_handles_nonascii_header(monkeypatch):
 # Event / label gating
 # ---------------------------------------------------------------------------
 def test_webhook_ignores_non_issue_event(client, monkeypatch):
-    monkeypatch.setenv("ASF_GITHUB_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("SOY_GITHUB_WEBHOOK_SECRET", SECRET)
     r = _post(client, {"zen": "hi"}, event="ping")
     assert r.status_code == 202
     assert r.json()["ignored"] is True
 
 
 def test_webhook_ignores_unlabelled_issue(client, monkeypatch, session_factory):
-    monkeypatch.setenv("ASF_GITHUB_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("SOY_GITHUB_WEBHOOK_SECRET", SECRET)
     r = _post(client, _issue_payload(labels=("bug",)))
     assert r.status_code == 202
     assert r.json()["ignored"] is True
@@ -183,7 +183,7 @@ def test_webhook_ignores_unlabelled_issue(client, monkeypatch, session_factory):
 
 def test_webhook_tolerates_malformed_payload(client, monkeypatch):
     """Non-object nested fields must not crash the handler with a 500."""
-    monkeypatch.setenv("ASF_GITHUB_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("SOY_GITHUB_WEBHOOK_SECRET", SECRET)
     # issue is a string, repository is a list, labels absent → ignored,
     # not a 500.
     r = _post(client, {"issue": "not-an-object", "repository": []})
@@ -206,8 +206,8 @@ def test_webhook_tolerates_malformed_payload(client, monkeypatch):
 # Ingestion
 # ---------------------------------------------------------------------------
 def test_webhook_creates_mission_and_is_idempotent(client, monkeypatch, session_factory):
-    monkeypatch.setenv("ASF_GITHUB_WEBHOOK_SECRET", SECRET)
-    monkeypatch.delenv("ASF_GIT_ENABLED", raising=False)  # git step off
+    monkeypatch.setenv("SOY_GITHUB_WEBHOOK_SECRET", SECRET)
+    monkeypatch.delenv("SOY_GIT_ENABLED", raising=False)  # git step off
     r1 = _post(client, _issue_payload(number=7))
     assert r1.status_code == 202, r1.text
     mid = r1.json()["mission_id"]
@@ -222,7 +222,7 @@ def test_webhook_creates_mission_and_is_idempotent(client, monkeypatch, session_
         m = db.get(Mission, uuid.UUID(mid))
         assert m.source == "github"
         assert m.external_id == "7"
-        assert m.branch_prefix == "feature/asf-7"
+        assert m.branch_prefix == "feature/soy-7"
 
 
 # ---------------------------------------------------------------------------
@@ -231,16 +231,16 @@ def test_webhook_creates_mission_and_is_idempotent(client, monkeypatch, session_
 def test_webhook_creates_branch_and_spec_when_git_enabled(
     client, monkeypatch, session_factory, remote_repo, tmp_path,
 ):
-    monkeypatch.setenv("ASF_GITHUB_WEBHOOK_SECRET", SECRET)
-    monkeypatch.setenv("ASF_GIT_ENABLED", "true")
-    monkeypatch.setenv("ASF_GIT_WORKDIR", str(tmp_path / "work"))
-    monkeypatch.delenv("ASF_GIT_PUSH_ENABLED", raising=False)  # no push
+    monkeypatch.setenv("SOY_GITHUB_WEBHOOK_SECRET", SECRET)
+    monkeypatch.setenv("SOY_GIT_ENABLED", "true")
+    monkeypatch.setenv("SOY_GIT_WORKDIR", str(tmp_path / "work"))
+    monkeypatch.delenv("SOY_GIT_PUSH_ENABLED", raising=False)  # no push
 
     r = _post(client, _issue_payload(number=9, repo_url=remote_repo))
     assert r.status_code == 202, r.text
     body = r.json()
     assert "git_error" not in body, body
-    assert body["git"]["branch"] == "feature/asf-9"
+    assert body["git"]["branch"] == "feature/soy-9"
     assert body["git"]["spec_path"] == "spec.md"
     assert body["git"]["pushed"] is False
     sha = body["git"]["commit_sha"]
@@ -249,7 +249,7 @@ def test_webhook_creates_branch_and_spec_when_git_enabled(
     # DB pointers updated.
     with session_factory() as db:
         m = db.get(Mission, uuid.UUID(body["mission_id"]))
-        assert m.branch == "feature/asf-9"
+        assert m.branch == "feature/soy-9"
         assert m.spec_path == "spec.md"
         assert m.spec_commit_sha == sha
 
@@ -269,17 +269,17 @@ def test_git_service_creates_branch_and_commits_spec(
     from soy.schemas import MissionCreate
     from soy.services.git_service import GitService
 
-    monkeypatch.setenv("ASF_GIT_WORKDIR", str(tmp_path / "gwork"))
+    monkeypatch.setenv("SOY_GIT_WORKDIR", str(tmp_path / "gwork"))
     with session_factory() as db:
         mission = create_mission_from_ingestion(db, MissionCreate(
-            title="t", repo_url=remote_repo, branch_prefix="feature/asf-3",
+            title="t", repo_url=remote_repo, branch_prefix="feature/soy-3",
             source="github", external_id="3",
         ))
         out = GitService(push_enabled=False).create_branch_and_spec(db, mission.id)
-        assert out["branch"] == "feature/asf-3"
+        assert out["branch"] == "feature/soy-3"
         assert out["commit_sha"]
 
         # Re-running is idempotent at the branch level (checks out the
         # existing branch, recommits the spec) — must not raise.
         out2 = GitService(push_enabled=False).create_branch_and_spec(db, mission.id)
-        assert out2["branch"] == "feature/asf-3"
+        assert out2["branch"] == "feature/soy-3"

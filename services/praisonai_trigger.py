@@ -49,7 +49,7 @@ def _resolve_model(model_name: Optional[str] = None) -> Dict[str, Any]:
     the key itself (via :mod:`soy.services.model_resolver`) when it
     actually constructs an agent.
     """
-    name = model_name or os.getenv("ASF_MODEL", "kimi-k2.6:cloud")
+    name = model_name or os.getenv("SOY_MODEL", "kimi-k2.6:cloud")
     base_url = os.getenv("OPENAI_BASE_URL") or os.getenv(
         "OLLAMA_BASE_URL", "http://localhost:11434/v1"
     )
@@ -112,7 +112,7 @@ def trigger_planning_phase(
         description as the planning brief.
     model_name:
         Optional override for the LLM identifier. Defaults to the
-        ``ASF_MODEL`` env var, falling back to ``kimi-k2.6:cloud``.
+        ``SOY_MODEL`` env var, falling back to ``kimi-k2.6:cloud``.
 
     Returns
     -------

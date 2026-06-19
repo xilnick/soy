@@ -1,4 +1,4 @@
-"""ASF — idempotent ingestion: unique (source, external_id)
+"""SOY — idempotent ingestion: unique (source, external_id)
 
 Revision ID: 0004_source_external_id_unique
 Revises: 0003_agent_sandbox
