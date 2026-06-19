@@ -631,8 +631,8 @@ class ControlStatusResponse(BaseModel):
     task_count: int = 0
     completed_tasks: int = 0
     git_info: Optional[dict] = None
-    research_results: Optional[dict] = None
-    verification_results: Optional[dict] = None
+    research_results: Optional[list] = None
+    verification_results: Optional[list] = None
     refinement_history: Optional[list] = None
     last_execution: Optional[dict] = None
 

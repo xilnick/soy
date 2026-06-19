@@ -26,6 +26,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from soy.db import get_db
 from soy.errors import raise_http_error
@@ -125,14 +126,14 @@ def refine_mission(
 ) -> MissionRead:
     """Dispatch a refinement agent to improve the mission description.
 
-    The agent iterates on the mission's description, improving
-    clarity, scope, and technical details. Results are stored in
+    Uses the coding agent dispatcher to invoke the configured coding
+    agent with a refinement prompt. The refined output is stored in
     mission metadata under ``refinement_history``.
     """
     _check_control_enabled()
     mission = _get_mission_or_404(db, mission_id)
 
-    worker = get_worker()
+    agent_model = payload.model or os.getenv("SOY_MODEL", "minimax-m3")
 
     # Build a refinement prompt
     refinement_prompt = (
@@ -145,27 +146,59 @@ def refine_mission(
     if payload.prompt:
         refinement_prompt += f"\nAdditional instructions: {payload.prompt}"
 
-    # Use the mission's orchestrator agent or create a temporary one
-    agent_model = payload.model or os.getenv("SOY_MODEL", "minimax-m3")
-
     # Record refinement attempt in metadata
     md = dict(mission.mission_metadata or {})
     refinement_history = md.get("refinement_history", [])
-    refinement_history.append({
+    entry = {
         "started_at": datetime.now(timezone.utc).isoformat(),
         "prompt": payload.prompt,
         "model": agent_model,
-    })
+    }
 
-    # Update mission metadata with refinement request
+    # Dispatch via coding agent dispatcher (best-effort)
+    try:
+        from soy.services.coding_agent_dispatcher import (
+            AgentNotFoundError,
+            dispatch as agent_dispatch,
+        )
+        # Try dispatching as a coding agent first
+        result = agent_dispatch(
+            agent_model,
+            refinement_prompt,
+            timeout=payload.timeout_seconds or 300,
+        )
+        entry["status"] = "completed" if not result.error else "error"
+        entry["output"] = result.stdout[:2000] if result.stdout else ""
+        entry["error"] = result.error
+        entry["duration_seconds"] = result.duration_seconds
+        entry["exit_code"] = result.exit_code
+
+        # Update description if refinement succeeded
+        if not result.error and result.stdout.strip():
+            # Extract the refined description from agent output
+            new_desc = result.stdout.strip()
+            if new_desc:
+                mission.description = new_desc
+    except (AgentNotFoundError, FileNotFoundError):
+        # No coding agent manifest found — record as triggered
+        # (planning agent will pick it up later)
+        entry["status"] = "triggered"
+        entry["note"] = "no coding agent manifest found; will use planning phase agent"
+    except Exception as exc:
+        entry["status"] = "error"
+        entry["error"] = str(exc)
+        logger.warning("Refinement dispatch failed for mission %s: %s", mission_id, exc)
+
+    refinement_history.append(entry)
     md["refinement_history"] = refinement_history
     mission.mission_metadata = md
+    flag_modified(mission, "mission_metadata")
     mission.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(mission)
 
     mc_sync.sync_mission_status(mission)
-    logger.info("Refinement triggered for mission %s", mission_id)
+    logger.info("Refinement completed for mission %s", mission_id)
 
     return MissionRead.from_orm_mission(mission)
 
@@ -185,6 +218,7 @@ def research_mission(
 ) -> MissionRead:
     """Dispatch a DeerFlow research task for the mission.
 
+    Calls the DeerFlow sandbox API (gated by SOY_DEERFLOW_ENABLED).
     Results are stored in mission metadata under ``research``.
     """
     _check_control_enabled()
@@ -194,13 +228,35 @@ def research_mission(
 
     md = dict(mission.mission_metadata or {})
     research_results = md.get("research", [])
-    research_results.append({
+    entry = {
         "started_at": datetime.now(timezone.utc).isoformat(),
         "query": query,
-        "status": "triggered",
-    })
+    }
+
+    # Dispatch via DeerFlow client (best-effort, gated)
+    try:
+        from soy.services.deerflow_client import DeerFlowClient
+        client = DeerFlowClient()
+        result = client.trigger_sandbox_task(
+            task_id=str(mission.id),
+            description=query,
+            metadata={"mission_id": str(mission.id), "source": "control_research"},
+        )
+        if result is not None:
+            entry["status"] = "completed"
+            entry["result"] = result
+        else:
+            entry["status"] = "triggered"
+            entry["note"] = "DeerFlow not available or returned no result"
+    except Exception as exc:
+        entry["status"] = "error"
+        entry["error"] = str(exc)
+        logger.warning("DeerFlow research failed for mission %s: %s", mission_id, exc)
+
+    research_results.append(entry)
     md["research"] = research_results
     mission.mission_metadata = md
+    flag_modified(mission, "mission_metadata")
     mission.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(mission)
@@ -224,22 +280,77 @@ def verify_mission(
     payload: VerifyRequest,
     db: Session = Depends(get_db),
 ) -> MissionRead:
-    """Dispatch the QA agent to verify the mission plan.
+    """Dispatch the QA/reviewer agent to verify the mission plan.
 
+    Uses the coding agent dispatcher with a verification prompt.
     Stores verification result in mission metadata under ``verification``.
     """
     _check_control_enabled()
     mission = _get_mission_or_404(db, mission_id)
 
+    agent_model = payload.model or os.getenv("SOY_MODEL", "minimax-m3")
+
+    verify_prompt = payload.prompt or (
+        f"Review the following mission plan for completeness and feasibility.\n\n"
+        f"Title: {mission.title}\n"
+        f"Description: {mission.description or '(no description)'}\n\n"
+        f"Check for:\n"
+        f"1. Clear problem statement\n"
+        f"2. Specific, measurable acceptance criteria\n"
+        f"3. Technical feasibility\n"
+        f"4. Missing dependencies or assumptions\n"
+        f"Respond with PASS or FAIL and a brief explanation."
+    )
+
     md = dict(mission.mission_metadata or {})
     verification = md.get("verification", [])
-    verification.append({
+    entry = {
         "started_at": datetime.now(timezone.utc).isoformat(),
         "prompt": payload.prompt,
-        "status": "triggered",
-    })
+        "model": agent_model,
+    }
+
+    # Dispatch via coding agent dispatcher (best-effort)
+    try:
+        from soy.services.coding_agent_dispatcher import (
+            AgentNotFoundError,
+            dispatch as agent_dispatch,
+        )
+        result = agent_dispatch(
+            agent_model,
+            verify_prompt,
+            timeout=payload.timeout_seconds or 300,
+        )
+        entry["status"] = "completed" if not result.error else "error"
+        entry["output"] = result.stdout[:2000] if result.stdout else ""
+        entry["error"] = result.error
+        entry["exit_code"] = result.exit_code
+        entry["duration_seconds"] = result.duration_seconds
+
+        # Determine pass/fail from output
+        if not result.error and result.stdout:
+            if "PASS" in result.stdout.upper()[:50]:
+                entry["verdict"] = "pass"
+            elif "FAIL" in result.stdout.upper()[:50]:
+                entry["verdict"] = "fail"
+            else:
+                entry["verdict"] = "unclear"
+
+        # Set audit_passed flag if verification passed
+        if entry.get("verdict") == "pass":
+            md["audit_passed"] = True
+    except (AgentNotFoundError, FileNotFoundError):
+        entry["status"] = "triggered"
+        entry["note"] = "no coding agent manifest found; will use planning phase agent"
+    except Exception as exc:
+        entry["status"] = "error"
+        entry["error"] = str(exc)
+        logger.warning("Verification dispatch failed for mission %s: %s", mission_id, exc)
+
+    verification.append(entry)
     md["verification"] = verification
     mission.mission_metadata = md
+    flag_modified(mission, "mission_metadata")
     mission.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(mission)
@@ -276,11 +387,13 @@ def start_execution(
         md = dict(mission.mission_metadata or {})
         md["planning_complete"] = True
         mission.mission_metadata = md
+        flag_modified(mission, "mission_metadata")
         mission.status = MissionStatus.execution
     elif current == MissionStatus.created:
         md = dict(mission.mission_metadata or {})
         md["planning_complete"] = True
         mission.mission_metadata = md
+        flag_modified(mission, "mission_metadata")
         mission.status = MissionStatus.execution
     elif current == MissionStatus.approved:
         mission.status = MissionStatus.execution
@@ -332,6 +445,11 @@ def auto_run_mission(
         mission.repo_url = payload.repo_url
     if payload.branch_prefix:
         mission.branch_prefix = payload.branch_prefix
+
+    # Commit repo_url/branch_prefix before attempting git operations
+    mission.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(mission)
 
     if not mission.repo_url:
         raise_http_error(
@@ -418,6 +536,7 @@ def auto_run_mission(
         md = dict(mission.mission_metadata or {})
         md.setdefault("git", {})["commit_sha"] = commit_sha
         mission.mission_metadata = md
+        flag_modified(mission, "mission_metadata")
         db.commit()
     except Exception as exc:
         logger.warning("Commit failed for mission %s: %s", mission_id, exc)
@@ -433,6 +552,7 @@ def auto_run_mission(
             md = dict(mission.mission_metadata or {})
             md.setdefault("git", {})["merge_sha"] = merge_sha
             mission.mission_metadata = md
+            flag_modified(mission, "mission_metadata")
             mission.updated_at = datetime.now(timezone.utc)
             db.commit()
             db.refresh(mission)
@@ -528,6 +648,7 @@ def commit_changes(
         md = dict(mission.mission_metadata or {})
         md.setdefault("git", {})["commit_sha"] = sha
         mission.mission_metadata = md
+        flag_modified(mission, "mission_metadata")
         mission.updated_at = datetime.now(timezone.utc)
         db.commit()
         return {"commit_sha": sha, "message": commit_msg}
@@ -578,6 +699,7 @@ def merge_branch(
         md = dict(mission.mission_metadata or {})
         md.setdefault("git", {})["merge_sha"] = merge_sha
         mission.mission_metadata = md
+        flag_modified(mission, "mission_metadata")
         mission.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(mission)
