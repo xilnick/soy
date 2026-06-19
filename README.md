@@ -227,10 +227,47 @@ clients subscribe per-mission (or globally with an admin token). Each
 subscriber has a bounded queue; slow consumers have their oldest events
 dropped rather than blocking the publisher.
 
+### Agent routing
+
+Soy dispatches different agents for different mission lifecycle phases.
+The agent names are configurable via env vars (set in `~/repos/soy/.env`):
+
+| Phase | Env Var | Default | Description |
+|---|---|---|---|
+| Research | `SOY_RESEARCH_AGENT` | `hermes` | Dispatched for research-phase tasks |
+| Implementation | `SOY_IMPLEMENTATION_AGENT` | `droid` | Dispatched for implementation tasks |
+| Plan review | `SOY_REVIEW_MODEL` | (empty) | When set (e.g. `z-ai/glm-5.2`), gates execution on a pre-execution plan review via `POST /api/v1/control/missions/{id}/review-plan` |
+
+Each agent is backed by a JSON manifest at `~/repos/soy/config/agents/{name}.json`.
+The dispatcher reads the manifest, invokes the binary via subprocess, and captures
+stdout/stderr.
+
+### Control dashboard endpoints
+
+When `SOY_CONTROL_ENABLED=true` (default), the `/api/v1/control/*` endpoints
+provide a dashboard-first interface for mission management without requiring
+GitHub:
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/control/missions` | POST | Create a mission (title only required) |
+| `/control/missions/{id}/refine` | POST | Refine plan via coding agent |
+| `/control/missions/{id}/research` | POST | Research via hermes + DeerFlow |
+| `/control/missions/{id}/verify` | POST | QA verification via coding agent |
+| `/control/missions/{id}/review-plan` | POST | Pre-execution review (gated by `SOY_REVIEW_MODEL`) |
+| `/control/missions/{id}/start-execution` | POST | One-click approve + execute |
+| `/control/missions/{id}/auto-run` | POST | Full autonomous: branch, agent, commit, merge |
+| `/control/missions/{id}/branch` | POST | Create feature branch |
+| `/control/missions/{id}/commit` | POST | Stage and commit changes |
+| `/control/missions/{id}/merge` | POST | Merge feature branch into main |
+| `/control/missions/{id}/status` | GET | Aggregated status for the dashboard |
+
 ### External integrations (all gated, all best-effort)
 
 - **Mission Control** -- Soy pushes mission/agent/task state to MC's REST
-  API. Tight timeout (2s); a slow or down MC never degrades Soy.
+  API. Tight timeout (2s); a slow or down MC never degrades Soy. Also
+  pushes agent dispatch results (`sync_dispatch_result`) so the dashboard
+  can show agent execution outcomes.
 - **DeerFlow** -- Optional sandbox trigger for agents whose sandbox flag
   is set. Routes tool execution to DeerFlow instead of running locally.
 - **Git-as-SSOT** -- Per-mission working clones, feature branches, spec.md

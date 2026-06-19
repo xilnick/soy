@@ -121,6 +121,27 @@ class MissionControlSync:
     def push_mission_status(self, mission: Any) -> bool:
         return self._post("/api/status", mission_status_payload(mission))
 
+    def push_dispatch_result(
+        self,
+        mission_id: str,
+        agent_name: str,
+        status: str,
+        exit_code: int,
+        duration_seconds: float,
+        error: Optional[str] = None,
+    ) -> bool:
+        """Push agent dispatch result for monitoring."""
+        payload = {
+            "mission_id": mission_id,
+            "agent": agent_name,
+            "status": status,
+            "exit_code": exit_code,
+            "duration_seconds": duration_seconds,
+        }
+        if error:
+            payload["error"] = error
+        return self._post("/api/dispatch-results", payload)
+
 
 # ---------------------------------------------------------------------------
 # Gated, fire-safe module helpers (what the routers call)
@@ -150,3 +171,22 @@ def sync_mission_status(mission: Any) -> None:
         MissionControlSync().push_mission_status(mission)
     except Exception:  # noqa: BLE001
         logger.exception("MC sync_mission_status failed")
+
+
+def sync_dispatch_result(
+    mission_id: str,
+    agent_name: str,
+    status: str,
+    exit_code: int,
+    duration_seconds: float,
+    error: Optional[str] = None,
+) -> None:
+    """Push agent dispatch result to MC for monitoring. Gated, best-effort."""
+    if not config.mc_sync_enabled():
+        return
+    try:
+        MissionControlSync().push_dispatch_result(
+            mission_id, agent_name, status, exit_code, duration_seconds, error,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("MC sync_dispatch_result failed")

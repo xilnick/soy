@@ -144,3 +144,29 @@ def agent_manifest_dir() -> str:
         "SOY_AGENT_MANIFEST_DIR",
         os.path.expanduser("~/repos/soy/config/agents"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Agent routing: which agent handles which mission phase
+# ---------------------------------------------------------------------------
+def research_agent() -> str:
+    """Agent name for the research phase (default: hermes)."""
+    return os.getenv("SOY_RESEARCH_AGENT", "hermes")
+
+
+def implementation_agent() -> str:
+    """Agent name for the implementation phase (default: droid)."""
+    return os.getenv("SOY_IMPLEMENTATION_AGENT", "droid")
+
+
+# ---------------------------------------------------------------------------
+# Optional plan-review model (GLM 5.2 or similar)
+# ---------------------------------------------------------------------------
+def review_model() -> str:
+    """Model identifier for the plan-review step. Empty = disabled."""
+    return os.getenv("SOY_REVIEW_MODEL", "")
+
+
+def review_enabled() -> bool:
+    """True when SOY_REVIEW_MODEL is set and non-empty."""
+    return bool(review_model().strip())

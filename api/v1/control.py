@@ -44,6 +44,7 @@ from soy.schemas import (
     MissionRead,
     RefineRequest,
     ResearchRequest,
+    ReviewPlanRequest,
     VerifyRequest,
 )
 from soy.services import mission_control_sync as mc_sync
@@ -216,9 +217,11 @@ def research_mission(
     payload: ResearchRequest,
     db: Session = Depends(get_db),
 ) -> MissionRead:
-    """Dispatch a DeerFlow research task for the mission.
+    """Dispatch a research task for the mission.
 
-    Calls the DeerFlow sandbox API (gated by SOY_DEERFLOW_ENABLED).
+    Dispatches to the configured research agent (default: hermes) via
+    the coding agent dispatcher, and also calls the DeerFlow sandbox
+    API (gated by SOY_DEERFLOW_ENABLED) for deeper research.
     Results are stored in mission metadata under ``research``.
     """
     _check_control_enabled()
@@ -233,24 +236,52 @@ def research_mission(
         "query": query,
     }
 
-    # Dispatch via DeerFlow client (best-effort, gated)
+    from soy import config as soy_config
+
+    # 1. Dispatch via research agent (hermes by default) for quick research
+    research_agent = payload.agent or soy_config.research_agent()
+    try:
+        from soy.services.coding_agent_dispatcher import dispatch as agent_dispatch
+        research_prompt = (
+            f"Research the following topic and provide a concise summary "
+            f"with key findings, relevant links, and actionable insights.\n\n"
+            f"{query}"
+        )
+        result = agent_dispatch(
+            research_agent,
+            research_prompt,
+            model=payload.model,
+            timeout=payload.timeout_seconds or 300,
+        )
+        entry["agent"] = research_agent
+        entry["status"] = "completed" if not result.error else "error"
+        entry["output"] = result.stdout[:4000] if result.stdout else ""
+        entry["error"] = result.error
+        entry["duration_seconds"] = result.duration_seconds
+        entry["exit_code"] = result.exit_code
+    except Exception as exc:
+        entry["status"] = "error"
+        entry["error"] = str(exc)
+        logger.warning("Research agent dispatch failed for mission %s: %s", mission_id, exc)
+
+    # 2. Also dispatch via DeerFlow client for deeper sandbox research (best-effort, gated)
     try:
         from soy.services.deerflow_client import DeerFlowClient
         client = DeerFlowClient()
-        result = client.trigger_sandbox_task(
+        df_result = client.trigger_sandbox_task(
             task_id=str(mission.id),
             description=query,
             metadata={"mission_id": str(mission.id), "source": "control_research"},
         )
-        if result is not None:
-            entry["status"] = "completed"
-            entry["result"] = result
+        if df_result is not None:
+            entry["deerflow_status"] = "completed"
+            entry["deerflow_result"] = df_result
         else:
-            entry["status"] = "triggered"
-            entry["note"] = "DeerFlow not available or returned no result"
+            entry["deerflow_status"] = "triggered"
+            entry["deerflow_note"] = "DeerFlow not available or returned no result"
     except Exception as exc:
-        entry["status"] = "error"
-        entry["error"] = str(exc)
+        entry["deerflow_status"] = "error"
+        entry["deerflow_error"] = str(exc)
         logger.warning("DeerFlow research failed for mission %s: %s", mission_id, exc)
 
     research_results.append(entry)
@@ -362,6 +393,125 @@ def verify_mission(
 
 
 # ---------------------------------------------------------------------------
+# POST /api/v1/control/missions/{id}/review-plan
+# ---------------------------------------------------------------------------
+@router.post(
+    "/missions/{mission_id}/review-plan",
+    response_model=MissionRead,
+    summary="Review the mission plan using a dedicated review model",
+)
+def review_plan(
+    mission_id: uuid.UUID,
+    payload: ReviewPlanRequest,
+    db: Session = Depends(get_db),
+) -> MissionRead:
+    """Review the mission plan before execution using a dedicated model.
+
+    Gated by ``SOY_REVIEW_MODEL``. When the env var is empty, the
+    endpoint returns 200 with ``review_disabled`` status. When set
+    (e.g. ``z-ai/glm-5.2``), dispatches the coding agent dispatcher
+    with the review model and a plan-review prompt.
+
+    Stores result in ``mission_metadata['review']`` and sets
+    ``mission_metadata['review_passed'] = True`` when the verdict is PASS.
+    """
+    _check_control_enabled()
+
+    from soy import config as soy_config
+
+    if not soy_config.review_enabled() and not payload.model:
+        # Review not configured — return success with a skip indicator
+        mission = _get_mission_or_404(db, mission_id)
+        md = dict(mission.mission_metadata or {})
+        md.setdefault("review", []).append({
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "status": "skipped",
+            "reason": "SOY_REVIEW_MODEL not configured",
+        })
+        mission.mission_metadata = md
+        flag_modified(mission, "mission_metadata")
+        db.commit()
+        db.refresh(mission)
+        return MissionRead.from_orm_mission(mission)
+
+    mission = _get_mission_or_404(db, mission_id)
+    review_model = payload.model or soy_config.review_model()
+
+    review_prompt = payload.prompt or (
+        f"Review the following mission plan for completeness, feasibility, "
+        f"and technical soundness before implementation.\n\n"
+        f"Title: {mission.title}\n"
+        f"Description: {mission.description or '(no description)'}\n\n"
+        f"Check for:\n"
+        f"1. Clear problem statement and well-defined scope\n"
+        f"2. Specific, measurable acceptance criteria\n"
+        f"3. Technical feasibility and correct approach\n"
+        f"4. Missing dependencies, assumptions, or edge cases\n"
+        f"5. Security and performance considerations\n\n"
+        f"Respond with PASS or FAIL as the first word, followed by a brief explanation."
+    )
+
+    md = dict(mission.mission_metadata or {})
+    review_history = md.get("review", [])
+    entry = {
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "model": review_model,
+        "prompt": payload.prompt,
+    }
+
+    try:
+        from soy.services.coding_agent_dispatcher import (
+            AgentNotFoundError,
+            dispatch as agent_dispatch,
+        )
+        result = agent_dispatch(
+            review_model,
+            review_prompt,
+            timeout=payload.timeout_seconds or 300,
+        )
+        entry["status"] = "completed" if not result.error else "error"
+        entry["output"] = result.stdout[:4000] if result.stdout else ""
+        entry["error"] = result.error
+        entry["exit_code"] = result.exit_code
+        entry["duration_seconds"] = result.duration_seconds
+
+        # Determine pass/fail from output
+        if not result.error and result.stdout:
+            upper = result.stdout.strip().upper()
+            if upper.startswith("PASS"):
+                entry["verdict"] = "pass"
+            elif upper.startswith("FAIL"):
+                entry["verdict"] = "fail"
+            else:
+                entry["verdict"] = "unclear"
+
+        # Set review_passed flag if review passed
+        if entry.get("verdict") == "pass":
+            md["review_passed"] = True
+    except (AgentNotFoundError, FileNotFoundError):
+        entry["status"] = "error"
+        entry["error"] = f"No agent manifest for review model '{review_model}'"
+        logger.warning("Review plan agent not found for mission %s: %s", mission_id, review_model)
+    except Exception as exc:
+        entry["status"] = "error"
+        entry["error"] = str(exc)
+        logger.warning("Review plan dispatch failed for mission %s: %s", mission_id, exc)
+
+    review_history.append(entry)
+    md["review"] = review_history
+    mission.mission_metadata = md
+    flag_modified(mission, "mission_metadata")
+    mission.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(mission)
+
+    mc_sync.sync_mission_status(mission)
+    logger.info("Plan review triggered for mission %s (model=%s)", mission_id, review_model)
+
+    return MissionRead.from_orm_mission(mission)
+
+
+# ---------------------------------------------------------------------------
 # POST /api/v1/control/missions/{id}/start-execution
 # ---------------------------------------------------------------------------
 @router.post(
@@ -405,6 +555,19 @@ def start_execution(
             "INVALID_STATE",
             f"Cannot start execution from state {current.value}",
         )
+
+    # Pre-execution review gate: when SOY_REVIEW_MODEL is configured,
+    # require that the plan has been reviewed and passed before execution.
+    from soy import config as soy_config
+    if soy_config.review_enabled():
+        md = dict(mission.mission_metadata or {})
+        if not md.get("review_passed"):
+            raise_http_error(
+                status.HTTP_403_FORBIDDEN,
+                "REVIEW_REQUIRED",
+                "Plan review has not been completed or has not passed. "
+                "Call POST /api/v1/control/missions/{id}/review-plan first.",
+            )
 
     mission.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -501,7 +664,11 @@ def auto_run_mission(
             )
         ).scalars().first()
         if coder:
-            agent_name = coder.model
+            agent_name = coder.name
+        else:
+            # Default to configured implementation agent (typically "droid")
+            from soy import config as soy_config
+            agent_name = soy_config.implementation_agent()
 
     if agent_name:
         prompt = payload.prompt or f"Implement: {mission.title}\n\n{mission.description or ''}"
@@ -519,11 +686,21 @@ def auto_run_mission(
                     "Agent %s returned error for mission %s: %s",
                     agent_name, mission_id, result.error,
                 )
+            # Sync dispatch result to MC for monitoring
+            mc_sync.sync_dispatch_result(
+                str(mission.id), agent_name,
+                "completed" if not result.error else "error",
+                result.exit_code, result.duration_seconds, result.error,
+            )
         except Exception as exc:
             logger.warning(
                 "Agent dispatch failed for mission %s: %s", mission_id, exc,
             )
             agent_output = {"error": str(exc)}
+            mc_sync.sync_dispatch_result(
+                str(mission.id), agent_name,
+                "error", -1, 0, str(exc),
+            )
 
     # 3. Commit changes
     commit_sha = None

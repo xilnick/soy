@@ -540,7 +540,8 @@ class RefineRequest(BaseModel):
 class ResearchRequest(BaseModel):
     """Request body for ``POST /api/v1/control/missions/{id}/research``.
 
-    Dispatches a DeerFlow research task for the mission.
+    Dispatches a research agent (hermes by default) for the mission,
+    plus an optional DeerFlow deep-research task.
     Results are stored in the mission's metadata under ``research``.
     """
 
@@ -548,6 +549,16 @@ class ResearchRequest(BaseModel):
         default=None,
         max_length=20_000,
         description="Research query. Defaults to mission title + description.",
+    )
+    agent: Optional[str] = Field(
+        default=None,
+        max_length=64,
+        description="Override the research agent (default: hermes).",
+    )
+    model: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        description="Override the LLM model for the research agent.",
     )
     timeout_seconds: Optional[int] = Field(default=300, ge=1, le=3600)
 
@@ -566,6 +577,26 @@ class VerifyRequest(BaseModel):
                     "Defaults to checking plan completeness and feasibility.",
     )
     model: Optional[str] = Field(default=None, max_length=128)
+    timeout_seconds: Optional[int] = Field(default=300, ge=1, le=3600)
+
+
+class ReviewPlanRequest(BaseModel):
+    """Request body for ``POST /api/v1/control/missions/{id}/review-plan``.
+
+    Optional pre-execution review of the mission plan using a dedicated
+    review model (e.g. z-ai/glm-5.2). Gated by SOY_REVIEW_MODEL.
+    """
+
+    model: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        description="Override the review model (default: SOY_REVIEW_MODEL).",
+    )
+    prompt: Optional[str] = Field(
+        default=None,
+        max_length=20_000,
+        description="Custom review instructions. Defaults to plan completeness check.",
+    )
     timeout_seconds: Optional[int] = Field(default=300, ge=1, le=3600)
 
 
