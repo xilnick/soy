@@ -25,7 +25,22 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator
+
+# Load .env from the project root before any config reads so
+# ``os.getenv`` calls in :mod:`soy.config` and :mod:`soy.db`
+# pick up the deploy-written values even when PM2 does not inject
+# them into the process environment (the JS ecosystem config
+# ``env_file`` key is only honoured by PM2 for Node.js processes).
+try:
+    from dotenv import load_dotenv
+
+    _env_path = Path(__file__).resolve().parent / ".env"
+    if _env_path.is_file():
+        load_dotenv(_env_path, override=False)
+except ImportError:
+    pass  # python-dotenv not installed — fall back to PM2 env injection
 
 from fastapi import Depends, FastAPI
 
