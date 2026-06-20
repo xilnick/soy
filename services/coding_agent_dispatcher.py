@@ -151,12 +151,17 @@ def dispatch(
     manifest = agents[agent_name]
     resolved_model = model or manifest.default_model
 
+    # Validate manifest env vars — block sensitive keys before merging
+    # into os.environ.
+    from soy.security import validate_manifest_env
+    validated_env = validate_manifest_env(manifest.env)
+
     timeout = timeout or config.agent_timeout_seconds()
 
     cmd = _build_command(manifest, prompt, resolved_model)
 
     env = dict(__import__("os").environ)
-    env.update(manifest.env)
+    env.update(validated_env)
 
     logger.info(
         "Dispatching agent=%s binary=%s model=%s cwd=%s timeout=%ds",

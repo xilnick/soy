@@ -47,6 +47,12 @@ from soy.schemas import (
     ReviewPlanRequest,
     VerifyRequest,
 )
+from soy.security import (
+    sanitize_for_prompt,
+    validate_branch_name,
+    validate_path_within,
+    validate_repo_url,
+)
 from soy.services import mission_control_sync as mc_sync
 from soy.services.git_backend import get_backend as get_git_backend
 from soy.services.praisonai_worker import get_worker
@@ -136,16 +142,19 @@ def refine_mission(
 
     agent_model = payload.model or os.getenv("SOY_MODEL", "minimax-m3")
 
-    # Build a refinement prompt
+    # Build a refinement prompt — wrap user-controlled fields in
+    # delimiter fencing to reduce prompt-injection surface.
+    safe_title = sanitize_for_prompt(mission.title)
+    safe_desc = sanitize_for_prompt(mission.description)
     refinement_prompt = (
         f"Refine and improve the following mission description. "
         f"Make it clearer, more specific, and actionable. "
         f"Keep the core intent but add technical detail.\n\n"
-        f"Title: {mission.title}\n"
-        f"Description: {mission.description or '(no description provided)'}\n"
+        f"Title: {safe_title}\n"
+        f"Description: {safe_desc}\n"
     )
     if payload.prompt:
-        refinement_prompt += f"\nAdditional instructions: {payload.prompt}"
+        refinement_prompt += f"\nAdditional instructions: {sanitize_for_prompt(payload.prompt)}"
 
     # Record refinement attempt in metadata
     md = dict(mission.mission_metadata or {})
@@ -229,6 +238,9 @@ def research_mission(
 
     query = payload.query or f"{mission.title}: {mission.description or ''}"
 
+    # Sanitize the query before passing to any agent/LLM.
+    safe_query = sanitize_for_prompt(query)
+
     md = dict(mission.mission_metadata or {})
     research_results = md.get("research", [])
     entry = {
@@ -245,7 +257,7 @@ def research_mission(
         research_prompt = (
             f"Research the following topic and provide a concise summary "
             f"with key findings, relevant links, and actionable insights.\n\n"
-            f"{query}"
+            f"{safe_query}"
         )
         result = agent_dispatch(
             research_agent,
@@ -270,7 +282,7 @@ def research_mission(
         client = DeerFlowClient()
         df_result = client.trigger_sandbox_task(
             task_id=str(mission.id),
-            description=query,
+            description=safe_query,
             metadata={"mission_id": str(mission.id), "source": "control_research"},
         )
         if df_result is not None:
@@ -293,7 +305,7 @@ def research_mission(
     db.refresh(mission)
 
     mc_sync.sync_mission_status(mission)
-    logger.info("Research triggered for mission %s: %s", mission_id, query[:100])
+    logger.info("Research triggered for mission %s: %s", mission_id, safe_query[:100])
 
     return MissionRead.from_orm_mission(mission)
 
@@ -321,10 +333,15 @@ def verify_mission(
 
     agent_model = payload.model or os.getenv("SOY_MODEL", "minimax-m3")
 
-    verify_prompt = payload.prompt or (
+    safe_title = sanitize_for_prompt(mission.title)
+    safe_desc = sanitize_for_prompt(mission.description)
+    verify_prompt = (
+        payload.prompt
+        and sanitize_for_prompt(payload.prompt)
+    ) or (
         f"Review the following mission plan for completeness and feasibility.\n\n"
-        f"Title: {mission.title}\n"
-        f"Description: {mission.description or '(no description)'}\n\n"
+        f"Title: {safe_title}\n"
+        f"Description: {safe_desc}\n\n"
         f"Check for:\n"
         f"1. Clear problem statement\n"
         f"2. Specific, measurable acceptance criteria\n"
@@ -437,11 +454,16 @@ def review_plan(
     mission = _get_mission_or_404(db, mission_id)
     review_model = payload.model or soy_config.review_model()
 
-    review_prompt = payload.prompt or (
+    safe_title = sanitize_for_prompt(mission.title)
+    safe_desc = sanitize_for_prompt(mission.description)
+    review_prompt = (
+        payload.prompt
+        and sanitize_for_prompt(payload.prompt)
+    ) or (
         f"Review the following mission plan for completeness, feasibility, "
         f"and technical soundness before implementation.\n\n"
-        f"Title: {mission.title}\n"
-        f"Description: {mission.description or '(no description)'}\n\n"
+        f"Title: {safe_title}\n"
+        f"Description: {safe_desc}\n\n"
         f"Check for:\n"
         f"1. Clear problem statement and well-defined scope\n"
         f"2. Specific, measurable acceptance criteria\n"
@@ -605,8 +627,10 @@ def auto_run_mission(
 
     # Set repo_url if provided and not already set
     if payload.repo_url and not mission.repo_url:
+        # validate_repo_url already ran in the schema validator
         mission.repo_url = payload.repo_url
     if payload.branch_prefix:
+        # validate_branch_name already ran in the schema validator
         mission.branch_prefix = payload.branch_prefix
 
     # Commit repo_url/branch_prefix before attempting git operations
@@ -621,20 +645,24 @@ def auto_run_mission(
             "Mission has no repo_url set. Provide one in the request or via PUT /missions/{id}.",
         )
 
+    # Validate repo_url (may have been set before validators were added).
+    validate_repo_url(mission.repo_url)
+
     # Generate branch name if not set
     branch_name = (
         mission.branch_prefix
         or f"feature/soy-{mission.external_id or mission.id}"
     )
+    validate_branch_name(branch_name)
 
+    # Resolve repo_path and ensure it stays within the configured workdir.
     repo_path = os.path.expanduser(mission.repo_url.replace("~", ""))
     if not os.path.isdir(os.path.join(repo_path, ".git")):
         # If repo_url is a URL, not a local path, use the configured workdir
         from soy import config
-        repo_path = os.path.join(
-            os.path.expanduser(config.git_workdir().replace("~", "")),
-            str(mission.id),
-        )
+        git_workdir = os.path.expanduser(config.git_workdir().replace("~", ""))
+        repo_path = os.path.join(git_workdir, str(mission.id))
+        validate_path_within(git_workdir, repo_path)
 
     backend = get_git_backend(repo_path)
 
@@ -671,7 +699,10 @@ def auto_run_mission(
             agent_name = soy_config.implementation_agent()
 
     if agent_name:
-        prompt = payload.prompt or f"Implement: {mission.title}\n\n{mission.description or ''}"
+        prompt = (
+            payload.prompt
+            and sanitize_for_prompt(payload.prompt)
+        ) or f"Implement: {sanitize_for_prompt(mission.title)}\n\n{sanitize_for_prompt(mission.description)}"
         try:
             from soy.services.coding_agent_dispatcher import dispatch as agent_dispatch
             result = agent_dispatch(
@@ -776,6 +807,7 @@ def create_branch(
         mission.branch_prefix
         or f"feature/soy-{mission.external_id or mission.id}"
     )
+    validate_branch_name(branch_name)
 
     from soy import config
     repo_path = os.path.expanduser(config.git_workdir().replace("~", ""))

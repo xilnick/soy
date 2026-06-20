@@ -170,3 +170,33 @@ def review_model() -> str:
 def review_enabled() -> bool:
     """True when SOY_REVIEW_MODEL is set and non-empty."""
     return bool(review_model().strip())
+
+
+# ---------------------------------------------------------------------------
+# Web UI
+# ---------------------------------------------------------------------------
+def web_enabled() -> bool:
+    """When True, the Soy web UI is expected to be running on port 3000."""
+    return _bool("SOY_WEB_ENABLED", True)
+
+
+# ---------------------------------------------------------------------------
+# API authentication
+# ---------------------------------------------------------------------------
+def soy_api_key() -> str:
+    """API key for bearer-token auth on ``/api/v1/*`` endpoints.
+
+    Empty (default) disables auth — the existing nginx basic-auth proxy
+    is the sole gate.  Set to a non-empty value when the API surface is
+    accessible beyond loopback.
+    """
+    return os.getenv("SOY_API_KEY", "").strip()
+
+
+def sandbox_override_enabled() -> bool:
+    """When True, authenticated callers may set ``sandbox=False`` on agents.
+
+    Default False — agents are always sandboxed unless the operator
+    explicitly allows the override via ``SOY_SANDBOX_OVERRIDE=true``.
+    """
+    return _bool("SOY_SANDBOX_OVERRIDE", False)

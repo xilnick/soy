@@ -102,10 +102,16 @@ class GitService:
         if not mission.repo_url:
             raise ValueError(f"mission {mission_id} has no repo_url")
 
+        # Validate repo_url before passing to GitPython (CVE-2022-24439,
+        # CVE-2023-40267).
+        from soy.security import validate_repo_url, validate_branch_name
+        validate_repo_url(mission.repo_url)
+
         branch_name = (
             mission.branch_prefix
             or f"feature/soy-{mission.external_id or mission.id}"
         )
+        validate_branch_name(branch_name)
         os.makedirs(self.workdir, exist_ok=True)
         path = self._repo_dir(mission_id)
 

@@ -699,19 +699,19 @@ class SoyWorker:
         base_url = resolved["base_url"]
         api_key = resolved["api_key"]
 
-        # Export env so PraisonAI's LLM client picks up the
-        # resolved values at construction time. The env mutation
-        # is intentional: PraisonAI reads ``OPENAI_BASE_URL`` and
-        # ``OPENAI_API_KEY`` when it instantiates the underlying
-        # OpenAI client, and that happens *after* ``Agent(...)``
-        # returns. We therefore must mutate ``os.environ`` before
-        # the next call.
+        # PraisonAI reads OPENAI_BASE_URL and OPENAI_API_KEY from
+        # os.environ at Agent construction time.  We snapshot the
+        # previous values and restore them immediately after the
+        # constructor returns so concurrent threads never see a
+        # stale / cross-pollinated endpoint.
+        _prev_base = os.environ.get("OPENAI_BASE_URL")
+        _prev_key = os.environ.get("OPENAI_API_KEY")
         os.environ["OPENAI_BASE_URL"] = base_url
         os.environ["OPENAI_API_KEY"] = api_key
 
         tools = tools_for_sandbox(sandbox)
 
-        return Agent(
+        agent = Agent(
             name=f"soy-{role.value}-{str(agent_id)[:8]}",
             role=role.value,
             goal=f"Execute tasks assigned to the {role.value} agent.",
@@ -725,6 +725,19 @@ class SoyWorker:
             api_key=api_key,
             tools=tools,
         )
+
+        # Restore the previous env so concurrent threads do not see
+        # a stale / cross-pollinated endpoint.
+        if _prev_base is not None:
+            os.environ["OPENAI_BASE_URL"] = _prev_base
+        else:
+            os.environ.pop("OPENAI_BASE_URL", None)
+        if _prev_key is not None:
+            os.environ["OPENAI_API_KEY"] = _prev_key
+        else:
+            os.environ.pop("OPENAI_API_KEY", None)
+
+        return agent
 
     def _build_praisonai_task(
         self,

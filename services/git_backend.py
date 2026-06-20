@@ -104,6 +104,8 @@ class LocalGitBackend(GitBackend):
     """Local-only git operations (no remote)."""
 
     def create_branch(self, branch_name: str, base: str = "HEAD") -> str:
+        from soy.security import validate_branch_name
+        validate_branch_name(branch_name)
         self.run_git(["checkout", "-b", branch_name, base])
         logger.info("local-git: created branch %s from %s", branch_name, base)
         return branch_name
@@ -149,6 +151,9 @@ class LocalGitBackend(GitBackend):
         target: str = "main",
         strategy: str = "squash",
     ) -> str:
+        from soy.security import validate_branch_name
+        validate_branch_name(branch_name)
+        validate_branch_name(target)
         self.run_git(["checkout", target])
         if strategy == "squash":
             self.run_git(["merge", "--squash", branch_name])
@@ -158,7 +163,7 @@ class LocalGitBackend(GitBackend):
             env["GIT_COMMITTER_NAME"] = "Soy Bot"
             env["GIT_COMMITTER_EMAIL"] = "soy-bot@piperoni.local"
             result = subprocess.run(
-                ["git", "commit", "-m", f"Merge branch '{branch_name}' (squash)"],
+                ["git", "commit", "-m", f"Merge branch into {target} (squash)"],
                 cwd=self.repo_path,
                 capture_output=True,
                 text=True,

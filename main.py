@@ -27,9 +27,10 @@ import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
 from soy.api.v1.router import api_v1_router, ws_router
+from soy.auth import verify_api_key
 from soy.db import run_alembic_upgrade
 from soy.errors import register_exception_handlers
 from soy.ws.events import install_as_publisher
@@ -96,9 +97,16 @@ app = FastAPI(
 register_exception_handlers(app)
 
 # API v1 router — mission CRUD + state machine.
-app.include_router(api_v1_router)
+# When SOY_API_KEY is set the verify_api_key dependency gates every
+# request to /api/v1/* (health, docs, and root are mounted on `app`
+# directly and are therefore exempt).  When the env var is empty the
+# dependency is a no-op — existing nginx basic-auth proxy is the sole gate.
+app.include_router(api_v1_router, dependencies=[Depends(verify_api_key)])
 
 # WebSocket router — real-time mission events.
+# The ws_router has its own HMAC-based auth for the wildcard ``*``
+# subscription; individual mission subscriptions are gated by
+# mission existence checks inside the handler.
 app.include_router(ws_router)
 
 # Wire the SOY worker's event publisher to the in-memory WebSocket

@@ -19,6 +19,8 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from soy.security import validate_branch_name, validate_repo_url
+
 from soy.models.enums import (
     AgentRole,
     AgentStatus,
@@ -53,6 +55,26 @@ class MissionCreate(BaseModel):
     issue_id: Optional[str] = Field(default=None, max_length=64)
     mission_metadata: Optional[dict] = Field(default=None)
 
+    @field_validator("repo_url")
+    @classmethod
+    def _validate_repo_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            return None
+        return validate_repo_url(stripped)
+
+    @field_validator("branch_prefix")
+    @classmethod
+    def _validate_branch_prefix(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            return None
+        return validate_branch_name(stripped)
+
 
 class MissionUpdate(BaseModel):
     """Request body for ``PUT /api/v1/missions/{id}``.
@@ -70,13 +92,25 @@ class MissionUpdate(BaseModel):
     spec_path: Optional[str] = Field(default=None, max_length=512)
     mission_metadata: Optional[dict] = Field(default=None)
 
-    @field_validator("repo_url", "branch_prefix")
+    @field_validator("repo_url")
     @classmethod
-    def _strip_blank(cls, value: Optional[str]) -> Optional[str]:
+    def _strip_blank_repo(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
         stripped = value.strip()
-        return stripped or None
+        if not stripped:
+            return None
+        return validate_repo_url(stripped)
+
+    @field_validator("branch_prefix")
+    @classmethod
+    def _strip_blank_branch(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            return None
+        return validate_branch_name(stripped)
 
 
 class MissionRead(BaseModel):
@@ -633,6 +667,26 @@ class AutoRunRequest(BaseModel):
         description="When True, auto-merge the branch after agent completes.",
     )
     timeout_seconds: Optional[int] = Field(default=600, ge=1, le=7200)
+
+    @field_validator("repo_url")
+    @classmethod
+    def _validate_repo_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            return None
+        return validate_repo_url(stripped)
+
+    @field_validator("branch_prefix")
+    @classmethod
+    def _validate_branch_prefix(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            return None
+        return validate_branch_name(stripped)
 
 
 class MergeRequest(BaseModel):
