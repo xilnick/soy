@@ -24,9 +24,9 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import List, Optional
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -43,7 +43,6 @@ from soy.schemas import (
 )
 from soy.services import mission_control_sync as mc_sync
 from soy.services.praisonai_worker import (
-    TEAM_ROLE_ORDER,
     get_worker,
 )
 

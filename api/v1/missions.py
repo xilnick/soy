@@ -459,7 +459,6 @@ def _try_merge_pr(mission: Mission) -> None:
     if not pr_number:
         return
 
-    from soy import config as _cfg
     from soy.services.git_service import GitService
 
     try:

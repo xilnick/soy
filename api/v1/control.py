@@ -31,7 +31,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from soy.db import get_db
 from soy.errors import raise_http_error
 from soy.models.agent import Agent
-from soy.models.enums import AgentRole, AgentStatus, MissionStatus, TaskStatus
+from soy.models.enums import AgentRole, MissionStatus, TaskStatus
 from soy.models.execution import Execution
 from soy.models.mission import Mission
 from soy.models.task import Task
@@ -55,7 +55,6 @@ from soy.security import (
 )
 from soy.services import mission_control_sync as mc_sync
 from soy.services.git_backend import get_backend as get_git_backend
-from soy.services.praisonai_worker import get_worker
 
 logger = logging.getLogger("soy.api.v1.control")
 
