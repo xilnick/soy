@@ -67,8 +67,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # subsequent startup line — including migration output — is
     # captured in the structured format PM2 ships.
     from soy.logging_config import configure_logging
+    from soy.sentry_init import init_sentry
 
     configure_logging()
+    init_sentry("soy-api")
 
     run_migrations = os.environ.get(
         "SOY_RUN_MIGRATIONS_ON_STARTUP", "true"
