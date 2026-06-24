@@ -72,6 +72,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging()
     init_sentry("soy-api")
 
+    # Centralized Sentry path: root logger ERROR+ auto-ships to Sentry.
+    try:
+        from sentry_log_handler import install_sentry_log_handler
+        install_sentry_log_handler()
+    except ImportError:
+        pass  # sentry_log_handler not available (e.g. in tests)
+
     run_migrations = os.environ.get(
         "SOY_RUN_MIGRATIONS_ON_STARTUP", "true"
     ).lower() in ("1", "true", "yes")
