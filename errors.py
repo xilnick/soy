@@ -28,7 +28,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger("soy.errors")
@@ -113,6 +113,36 @@ async def validation_exception_handler(
     )
 
 
+async def response_validation_exception_handler(
+    request: Request, exc: ResponseValidationError
+) -> JSONResponse:
+    """FEAT-076: Capture Pydantic ResponseValidationError and forward to Sentry.
+
+    This exception bypasses the generic ``@app.exception_handler(Exception)``
+    in some FastAPI/Starlette versions, so errors in response serialization
+    (e.g. a route returning data that violates its ``response_model``) were
+    silently returned as 500 with no Sentry event. This handler ensures
+    every response-validation failure is captured.
+    """
+    try:
+        import sentry_sdk
+
+        sentry_sdk.capture_exception(exc)
+    except Exception:
+        pass
+    logger.error(
+        "ResponseValidationError on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc.errors(),
+        exc_info=exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content=_err("INTERNAL_ERROR", "Internal server error"),
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Install the structured error handlers on ``app``.
 
@@ -122,3 +152,4 @@ def register_exception_handlers(app: FastAPI) -> None:
     """
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(ResponseValidationError, response_validation_exception_handler)

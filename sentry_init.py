@@ -24,7 +24,7 @@ def init_sentry(service: str = "soy-api") -> None:
     """
     dsn = os.environ.get("SENTRY_DSN", "").strip()
     if not dsn:
-        logger.info("SENTRY_DSN not set; Sentry SDK not initialised")
+        logger.warning("Sentry enabled: False (SENTRY_DSN unset)")
         return
 
     sentry_sdk.init(
@@ -37,4 +37,8 @@ def init_sentry(service: str = "soy-api") -> None:
         integrations=[FastApiIntegration(), StarletteIntegration()],
         send_default_pii=False,
     )
-    logger.info("Sentry SDK initialised for %s", service)
+    logger.warning(
+        "Sentry enabled: True (service=%s, env=%s)",
+        service,
+        os.environ.get("SENTRY_ENV", "production"),
+    )

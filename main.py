@@ -158,6 +158,29 @@ async def health() -> dict:
     }
 
 
+@app.get("/health/sentry-debug")
+async def sentry_debug() -> dict:
+    """FEAT-076: Probe Sentry wiring end-to-end.
+
+    Synthesises a test exception and captures it via ``sentry_sdk``.
+    Returns ``{"dsn_set": true/false, "captured": true/false}`` so the
+    operator can confirm the SDK is wired without producing a real 500.
+    Requires nginx basic-auth (same proxy as /health).
+    """
+    import sentry_sdk
+
+    dsn = os.environ.get("SENTRY_DSN", "").strip()
+    if not dsn:
+        return {"dsn_set": False, "captured": False}
+    try:
+        sentry_sdk.capture_exception(
+            RuntimeError("soy-api sentry-debug probe — safe to ignore")
+        )
+        return {"dsn_set": True, "captured": True}
+    except Exception as e:
+        return {"dsn_set": True, "captured": False, "error": str(e)}
+
+
 @app.get("/")
 async def root() -> dict:
     """Service root."""
